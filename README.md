@@ -7,7 +7,7 @@ This project integrates deep learning with multi-fidelity models to enhance unce
 Clone this repository and install the dependencies to set up your environment:
 
 ```bash
-git clone https://github.com/<your-username>/<repository-name>.git
+git clone git@github.com:filippozacchei/Deep-UQ.git
 cd <repository-name>
 pip install -r requirements.txt
 ```
@@ -42,7 +42,7 @@ Navigate to docs/tutorials for comprehensive guides on setting up your environme
 Contributions to this project are welcome. Please refer to CONTRIBUTING.md for contribution guidelines.
 
 ## License
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the GPL 3.0 License - see the LICENSE file for details.
 
 ## Contact
 For any queries or further information, please contact [filippo.zacchei@polimi.it].
