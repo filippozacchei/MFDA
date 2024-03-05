@@ -23,9 +23,9 @@ Below is the structured overview of the repository:
     │
     ├── src/                    # Source code
     │   ├── case_studies/       # Real-world application examples
-    │   ├── models/             # Different modeling approaches
+    │   ├── models/             # Different Surrogate modeling approaches
     |   ├── forward_uq/         # Bayesian Forward problem and sensitivity analysis algorithms
-    │   └── backaward_uq/       # Bayesian inverse problem algorithms
+    │   └── backaward_uq/       # Bayesian Inverse problem algorithms
     │
     ├── tests/                  # Unit and integration tests
     │
