@@ -8,9 +8,11 @@ Clone this repository and install the dependencies to set up your environment:
 
 ```bash
 git clone git@github.com:filippozacchei/Deep-UQ.git
-cd <repository-name>
+cd MFDA
 pip install -r requirements.txt
 ```
+
+In case you prefer, you may use conda environment for installing the dependencies.
 
 ## Repository Structure
 
