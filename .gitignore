@@ -9,6 +9,8 @@
 *.jpg
 *.png
 *.jpeg
+*pycache*
+*DS_store*
 
 # Sphinx documentation
 docs/_build/
