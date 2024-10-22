@@ -65,7 +65,7 @@ class MultiFidelityNN(SingleFidelityNN):
         else:
             raise ValueError(f"Unsupported merge_mode: {self.merge_mode}. Use 'add' or 'concat'.")
         
-        for layer in self.layers_config[fidelity][1:]:
+        for layer in self.layers_config['output_layers'][1:]:
             merged_output = Dense(layer['units'], activation=layer['activation'], kernel_regularizer=l2(self.coeff))(merged_output)
 
         # Output layer

@@ -1,12 +1,41 @@
 import os
 import numpy as np
 from typing import List, Dict, Tuple, Any, Callable
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.regularizers import l2
 from sklearn.model_selection import KFold
-from tensorflow.keras.callbacks import LearningRateScheduler
+from tensorflow.keras.callbacks import LearningRateScheduler, Callback
 
+
+import sys
+
+class PrintEveryNEpoch(Callback):
+    def __init__(self, n, total_epochs):
+        super(PrintEveryNEpoch, self).__init__()
+        self.n = n
+        self.total_epochs = total_epochs
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch + 1) % self.n == 0 or (epoch + 1) == self.total_epochs:  # Print every `n` epochs
+            logs = logs or {}
+            # Format logs, display small values in scientific notation
+            def format_value(value):
+                return f'{value:.4f}' if value >= 1e-3 else f'{value:.4e}'
+
+            log_str = ' - '.join([f'{key}: {format_value(value)}' for key, value in logs.items()])
+            
+            # Calculate progress percentage
+            progress = (epoch + 1) / self.total_epochs * 100
+            progress_bar = f"[{'=' * (int(progress) // 2)}{' ' * (50 - int(progress) // 2)}]"
+
+            # Print progress and logs, overwrite the previous line
+            sys.stdout.write(f'\rEpoch {epoch + 1}/{self.total_epochs} | {log_str} | {progress_bar} {progress:.2f}%')
+            sys.stdout.flush()
+
+    def on_train_end(self, logs=None):
+        print("\nTraining complete.")
+            
 
 def make_scheduler(coeff: float, mode: str = 'linear') -> Callable[[int, float], float]:
     """
@@ -74,12 +103,12 @@ class SingleFidelityNN:
 
         :return: A compiled Keras Sequential model.
         """
-        model = Sequential()
-
-        # Add input layer
-        model.add(Dense(self.layers_config[0]['units'], input_shape=self.input_shape, 
-                        activation=self.layers_config[0]['activation'], 
-                        kernel_regularizer=l2(self.coeff)))
+        model = Sequential([
+                        Input(self.input_shape),
+                        Dense(self.layers_config[0]['units'], 
+                              activation=self.layers_config[0]['activation'], 
+                              kernel_regularizer=l2(self.coeff)) 
+                        ])
 
         # Add hidden layers
         for layer in self.layers_config[1:]:
@@ -94,7 +123,6 @@ class SingleFidelityNN:
         model.compile(optimizer=self.train_config.get('optimizer', 'adam'), 
                       loss='mean_squared_error', 
                       metrics=['mean_squared_error'])
-
         return model
 
     def kfold_train(self, X_train: np.ndarray, y_train: np.ndarray) -> None:
@@ -114,17 +142,16 @@ class SingleFidelityNN:
             y_train_k, y_val_k = y_train[train_index], y_train[val_index]
 
             # Compile the model
-            self.model.compile(optimizer=self.train_config.get('optimizer', 'adam'),
-                               loss='mean_squared_error',
-                               metrics=['mean_squared_error'])
+            self.model = self.build_model()
 
             # Train the model
             self.model.fit(X_train_k, y_train_k,
                            epochs=self.train_config['epochs'],
                            batch_size=self.train_config['batch_size'],
                            validation_data=(X_val_k, y_val_k),
-                           callbacks=[LearningRateScheduler(self.lr_scheduler)],
-                           verbose=1)
+                           validation_freq = 10,
+                           callbacks=[LearningRateScheduler(self.lr_scheduler), PrintEveryNEpoch(10, self.train_config['epochs'])],
+                           verbose=0)
 
             # Save the model for each fold
             model_save_path = os.path.join(self.train_config['model_save_path'], f'model_fold_{fold_var}.keras')
@@ -136,3 +163,9 @@ class SingleFidelityNN:
                 print(f"Error saving model for fold {fold_var}: {e}")
 
             fold_var += 1
+        return
+
+    def load_model(self, model_path: str) -> None :
+        self.model = load_model(model_path)
+        return
+    
