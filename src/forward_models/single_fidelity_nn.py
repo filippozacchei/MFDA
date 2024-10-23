@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.regularizers import l2
 from sklearn.model_selection import KFold
 from tensorflow.keras.callbacks import LearningRateScheduler, Callback
-
+from tensorflow.keras.optimizers import Adam
 
 import sys
 
@@ -120,7 +120,7 @@ class SingleFidelityNN:
         model.add(Dense(self.output_units, activation=self.output_activation, kernel_regularizer=l2(self.coeff)))
 
         # Compile the model
-        model.compile(optimizer=self.train_config.get('optimizer', 'adam'), 
+        model.compile(optimizer=Adam(learning_rate=0.001), 
                       loss='mean_squared_error', 
                       metrics=['mean_squared_error'])
         return model
@@ -168,4 +168,5 @@ class SingleFidelityNN:
     def load_model(self, model_path: str) -> None :
         self.model = load_model(model_path)
         return
+    
     

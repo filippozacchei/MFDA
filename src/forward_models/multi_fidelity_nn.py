@@ -5,7 +5,33 @@ from tensorflow.keras.callbacks import LearningRateScheduler
 from tensorflow.keras.regularizers import l2
 
 from typing import List, Dict, Tuple, Any
-import SingleFidelityNN
+from single_fidelity_nn import *
+
+class PrintEveryNEpoch(Callback):
+    def __init__(self, n, total_epochs):
+        super(PrintEveryNEpoch, self).__init__()
+        self.n = n
+        self.total_epochs = total_epochs
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch + 1) % self.n == 0 or (epoch + 1) == self.total_epochs:  # Print every `n` epochs
+            logs = logs or {}
+            # Format logs, display small values in scientific notation
+            def format_value(value):
+                return f'{value:.4f}' if value >= 1e-3 else f'{value:.4e}'
+
+            log_str = ' - '.join([f'{key}: {format_value(value)}' for key, value in logs.items()])
+            
+            # Calculate progress percentage
+            progress = (epoch + 1) / self.total_epochs * 100
+            progress_bar = f"[{'=' * (int(progress) // 2)}{' ' * (50 - int(progress) // 2)}]"
+
+            # Print progress and logs, overwrite the previous line
+            sys.stdout.write(f'\rEpoch {epoch + 1}/{self.total_epochs} | {log_str} | {progress_bar} {progress:.2f}%')
+            sys.stdout.flush()
+
+    def on_train_end(self, logs=None):
+        print("\nTraining complete.")
 
 class MultiFidelityNN(SingleFidelityNN):
     """
@@ -53,9 +79,10 @@ class MultiFidelityNN(SingleFidelityNN):
         """
         # Input layers for each fidelity level
         inputs = [Input(shape=shape) for shape in self.input_shapes]
+        fidelities =  [item for item in self.layers_config['input_layers']]
 
         # Hidden layers for each fidelity level
-        fidelity_layers = [self._build_hidden_layers(input_layer) for input_layer in inputs]
+        fidelity_layers = [self._build_hidden_layers(input_layer,fidelity) for (input_layer,fidelity) in zip(inputs,fidelities)]
 
         # Merge fidelity layers based on the merge_mode
         if self.merge_mode == 'add':
@@ -86,8 +113,8 @@ class MultiFidelityNN(SingleFidelityNN):
         :param input_layer: Input layer for a fidelity level.
         :return: Final hidden layer for the corresponding fidelity level.
         """
-        x = Dense(self.layers_config[0]['units'], activation=self.layers_config[0]['activation'], kernel_regularizer=l2(self.coeff))(input_layer)
-        for layer in self.layers_config[fidelity][1:]:
+        x = Dense(self.layers_config['input_layers'][fidelity][0]['units'], activation=self.layers_config['input_layers'][fidelity][0]['activation'], kernel_regularizer=l2(self.coeff))(input_layer)
+        for layer in self.layers_config['input_layers'][fidelity][1:]:
             x = Dense(layer['units'], activation=layer['activation'], kernel_regularizer=l2(self.coeff))(x)
         return x
 
@@ -109,6 +136,9 @@ class MultiFidelityNN(SingleFidelityNN):
             X_val_k_fidelities = [X_train[val_index] for X_train in X_train_fidelities]
             y_train_k, y_val_k = y_train[train_index], y_train[val_index]
 
+            # Build the model
+            self.model = self.build_model()
+
             # Compile the model
             self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
 
@@ -117,8 +147,9 @@ class MultiFidelityNN(SingleFidelityNN):
                            epochs=self.train_config['epochs'],
                            batch_size=self.train_config['batch_size'],
                            validation_data=(X_val_k_fidelities, y_val_k),
-                           callbacks=[LearningRateScheduler(self.lr_scheduler)],
-                           verbose=1)
+                           validation_freq = 10,
+                           callbacks=[LearningRateScheduler(self.lr_scheduler), PrintEveryNEpoch(10, self.train_config['epochs'])],
+                           verbose=0)
 
             # Save the model for each fold
             model_save_path = os.path.join(self.train_config['model_save_path'], f'model_fold_{fold_var}.keras')

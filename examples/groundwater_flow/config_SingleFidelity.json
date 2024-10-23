@@ -6,7 +6,7 @@
         "scheduler_coeff": 0.999,
         "scheduler_mode": "linear",
         "optimizer": "adam",
-        "model_save_path": "./models/single_fidelity/resolution_50/samples_1000"
+        "model_save_path": "./models/single_fidelity/resolution_50/samples_8000"
     },
 
     "layers_config": [
@@ -23,6 +23,6 @@
     "y_train": "./data/y_train_h1.csv",
     "X_test": "./data/X_test_h1.csv",
     "y_test": "./data/y_test_h1.csv",
-    "coeff": 1e-6,
+    "coeff": 1e-5,
     "output_activation": "linear"
 }

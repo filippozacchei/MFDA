@@ -2,11 +2,12 @@ import sys
 import os
 import json
 import logging
+import tensorflow as tf
 # Add the 'models' directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_models/'))
 
 from single_fidelity_nn import SingleFidelityNN
-from utils import prepare_data_single_fidelity
+from utils import prepare_data_single_fidelity, plot_results
 
 # Set up logging for progress output
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -41,7 +42,7 @@ def prepare_data(config):
         y_test_filepath=config["y_test"]
     )
 
-def main():
+def main():         
     # Add the 'models' directory to the Python path
     sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_models/'))
 
@@ -74,6 +75,8 @@ def main():
     # Train the model using K-Fold cross-validation
     logging.info("Starting K-Fold training")
     sfnn_model.kfold_train(X_train, y_train)
+
+    plot_results(X_test, y_test, sfnn_model.model)
 
     logging.info("Training completed successfully!")
 
