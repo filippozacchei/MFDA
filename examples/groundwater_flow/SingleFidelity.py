@@ -7,25 +7,11 @@ import tensorflow as tf
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_models/'))
 
 from single_fidelity_nn import SingleFidelityNN
-from utils import prepare_data_single_fidelity, plot_results
+from utils import *
 
 # Set up logging for progress output
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def load_config(config_filepath):
-    """
-    Load configuration from a JSON file.
-    :param config_filepath: Path to the configuration file.
-    :return: Configuration dictionary.
-    """
-    try:
-        logging.info(f"Loading configuration from {config_filepath}")
-        with open(config_filepath, 'r') as config_file:
-            config = json.load(config_file)
-        return config
-    except FileNotFoundError:
-        logging.error(f"Configuration file not found: {config_filepath}")
-        sys.exit(1)
 
 def prepare_data(config):
     """
@@ -50,6 +36,9 @@ def main():
     config_filepath = 'config_SingleFidelity.json'
     config = load_config(config_filepath)
 
+    destination_folder = config["train_config"]["model_save_path"]
+    shutil.copy(config_filepath, destination_folder)
+    
     # Prepare training and testing data
     X_train, y_train, X_test, y_test = prepare_data(config)
 

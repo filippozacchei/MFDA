@@ -1,5 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import json
+import logging
+import sys
+import shutil
+
+def load_config(config_filepath):
+    """
+    Load configuration from a JSON file.
+    :param config_filepath: Path to the configuration file.
+    :return: Configuration dictionary.
+    """
+    try:
+        logging.info(f"Loading configuration from {config_filepath}")
+        with open(config_filepath, 'r') as config_file:
+            config = json.load(config_file)
+        return config
+    except FileNotFoundError:
+        logging.error(f"Configuration file not found: {config_filepath}")
+        sys.exit(1)
+
+    return config
+
+
 
 def load_data(filepath):
     """
