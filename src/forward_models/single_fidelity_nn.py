@@ -52,6 +52,14 @@ def make_scheduler(coeff: float, mode: str = 'linear') -> Callable[[int, float],
             else:
                 return max(lr * coeff, 1e-7)
         return scheduler
+    elif mode == 'decay':
+        def scheduler(epoch: int, lr: float) -> float:
+            if epoch < 10:
+                return lr
+            else:
+                return lr*(1+coeff*epoch)/(1+coeff*(epoch+1))
+        return scheduler
+
     else:
         raise ValueError(f"Unsupported mode: {mode}. Currently, only 'linear' is supported.")
 
@@ -169,4 +177,4 @@ class SingleFidelityNN:
         self.model = load_model(model_path)
         return
     
-    
+

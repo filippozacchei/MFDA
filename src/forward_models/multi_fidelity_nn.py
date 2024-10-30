@@ -50,7 +50,9 @@ class MultiFidelityNN(SingleFidelityNN):
                  train_config: Dict[str, Any],
                  output_units: int,
                  output_activation: str,
-                 merge_mode: str = 'add'):
+                 merge_mode: str = 'add',
+                 correction = False,
+                 submodel = None):
         """
         Initialize the MultiFidelityNN model with the given configuration.
 
@@ -64,6 +66,11 @@ class MultiFidelityNN(SingleFidelityNN):
         """
         self.input_shapes = input_shapes
         self.merge_mode = merge_mode
+        self.additive_correction = correction
+
+        if self.additive_correction is True:
+            self.submodel = submodel
+
         super().__init__(input_shape=input_shapes[0],  # Assume the first fidelity as the main input shape
                          coeff=coeff,
                          layers_config=layers_config,
@@ -98,6 +105,12 @@ class MultiFidelityNN(SingleFidelityNN):
         # Output layer
         output = Dense(self.output_units, activation=self.output_activation, kernel_regularizer=l2(self.coeff))(merged_output)
 
+        if self.additive_correction is True:
+            model_nn = load_model(self.submodel)
+            model_nn.trainable = False
+            output_lf = model_nn(inputs[0])
+            output = Add()([output,output_lf])
+
         # Create and compile the model
         model = Model(inputs=inputs, outputs=output)
         model.compile(optimizer=self.train_config.get('optimizer', 'adam'), 
@@ -125,7 +138,7 @@ class MultiFidelityNN(SingleFidelityNN):
         :param X_train_fidelities: List of training inputs for each fidelity level.
         :param y_train: Target training data.
         """
-        kf = KFold(n_splits=self.train_config['n_splits'], shuffle=True, random_state=42)
+        kf = KFold(n_splits=self.train_config['n_splits'], shuffle=True, random_state=56)
         fold_var = 1
 
         for train_index, val_index in kf.split(y_train):
