@@ -29,11 +29,8 @@ def prepare_data(config):
     )
 
 def main():         
-    # Add the 'models' directory to the Python path
-    sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_models/'))
-
     # Load configuration
-    config_filepath = 'config_SingleFidelity.json'
+    config_filepath = 'config/config_SingleFidelity.json'
     config = load_config(config_filepath)
 
     destination_folder = config["train_config"]["model_save_path"]

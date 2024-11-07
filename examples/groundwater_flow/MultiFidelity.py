@@ -41,7 +41,7 @@ def main():
     sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_models/'))
 
     # Load configuration
-    config_filepath = 'config_MultiFidelity_1step.json'
+    config_filepath = 'config/config_MultiFidelity_1step.json'
     config = load_config(config_filepath)
 
     destination_folder = config["train_config"]["model_save_path"]
@@ -56,10 +56,8 @@ def main():
 
     # Initialize the multiFidelityNN model
     logging.info("Correctness of Multi Fidelity Data")
-    print(y_test)
-    logging.info(f"\nMSE:  {np.sqrt(np.mean((X_test_coarse - y_test)**2)):.4e}")
-    print(X_test_coarse)
-    logging.info(f"\nMSE:  {np.sqrt(np.mean((X_test_nn - y_test)**2)):.4e}")
+    logging.info(f"\nMSE coarse simulation:  {np.sqrt(np.mean((X_test_coarse - y_test)**2)):.4e}")
+    logging.info(f"\nMSE nn lower level:  {np.sqrt(np.mean((X_test_nn - y_test)**2)):.4e}")
     print(X_test_nn)
     
     # Initialize the multiFidelityNN model
