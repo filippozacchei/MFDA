@@ -3,8 +3,6 @@
 *.pdf
 *.xls
 *.xlsx
-*.csv
-*.keras
 *.h5
 *.jpg
 *.png
