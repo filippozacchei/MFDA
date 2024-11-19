@@ -26,7 +26,7 @@ sys.path.append('./data/data_generation/')
 from model import Model
 from utils import *
 
-case = "1-step"  # Options: "2-step"/"1-step"/"FOM"
+case = "2-step"  # Options: "2-step"/"1-step"/"FOM"
 
 # MCMC Parameters
 noise        = 0.01
@@ -98,8 +98,8 @@ def solver_h3_data(x):
 if case == "2-step":
     # Load Models for Low- and Multi-fidelity Predictions
     models_l = [load_model(f'models/single_fidelity/resolution_h1/samples_16000/model_fold_{i}.keras') for i in range(1, 5)]
-    models_l_s = [load_model(f'models/single_fidelity/resolution_h3/samples_64000/model_fold_{i}.keras') for i in range(1, 5)]
-    model_mf = load_model('models/multi_fidelity/resolution_50-10_2step/samples_16000/model_fold_4.keras')
+    models_l_s = [load_model(f'models/single_fidelity/resolution_h2/samples_64000/model_fold_{i}.keras') for i in range(1, 5)]
+    model_mf = load_model('models/multi_fidelity/resolution_50-25_2step/samples_16000/model_fold_4.keras')
     
     # Define TensorFlow Functions with JIT Compilation
     @tf.function(jit_compile=True)
@@ -125,7 +125,7 @@ if case == "2-step":
 elif case == "1-step":
     # Load Models for Low- and Multi-fidelity Predictions
     models_l = [load_model(f'models/single_fidelity/resolution_h1/samples_16000/model_fold_{i}.keras') for i in range(1, 5)]
-    model_mf = load_model('models/multi_fidelity/resolution_50-25/samples_16000/model_fold_4.keras')
+    model_mf = load_model('models/multi_fidelity/resolution_50-10/samples_16000/model_fold_4.keras')
 
     # Define TensorFlow Functions with JIT Compilation
     @tf.function(jit_compile=True)
@@ -141,7 +141,7 @@ elif case == "1-step":
         return model_mf([input1,input2,output_lf], training=False)[0]
     
     def model_HF(input):
-        coarse_data = tf.constant(solver_h2_data(input), dtype=tf.float32)
+        coarse_data = tf.constant(solver_h3_data(input), dtype=tf.float32)
         return model_hf1step(input, coarse_data).numpy().flatten()
 
     def model_LF(input): return model_lf(input).numpy().flatten()
