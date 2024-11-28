@@ -29,12 +29,8 @@ ipython_config.py
 .venv
 
 # data
-<<<<<<< HEAD
-*.csv
-
-=======
 *.npy
 *.h6
 *.keras
 *.csv
->>>>>>> 36df310 (Cleaning)
+*.log
