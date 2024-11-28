@@ -160,14 +160,14 @@ def main():
     samples = generate_samples(n_samples)
 
     for key in ["h1", "h2", "h3"]:
-        generate_solver_data(solvers, key, samples, datapoints, "../data")
+        generate_solver_data(solvers, key, samples, datapoints, "../../data")
 
     print("\nProject solution and save POD \n")
     datapoints = np.array(list(product(np.linspace(0.0, 1.0, 10), repeat=2)))
     
     # Perform POD projection and save for all solvers
     for key in ["h1", "h2", "h3"]:
-        project_and_save_pod(solvers, key, samples, datapoints, "../data")
+        project_and_save_pod(solvers, key, samples, datapoints, "../../data")
 
 if __name__ == "__main__":
     main()
