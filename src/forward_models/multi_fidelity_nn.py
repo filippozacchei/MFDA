@@ -1,8 +1,11 @@
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, Add, Input, Concatenate
+from tensorflow.keras.layers import Dense, Add, Input, Concatenate, Dropout, BatchNormalization
 from sklearn.model_selection import KFold
 from tensorflow.keras.callbacks import LearningRateScheduler
 from tensorflow.keras.regularizers import l2
+from tensorflow.keras.callbacks import ReduceLROnPlateau
+
+
 
 from typing import List, Dict, Tuple, Any
 from single_fidelity_nn import *
@@ -52,7 +55,8 @@ class MultiFidelityNN(SingleFidelityNN):
                  output_activation: str,
                  merge_mode: str = 'add',
                  correction = False,
-                 submodel = None):
+                 submodel = None,
+                 rate = 0.2):
         """
         Initialize the MultiFidelityNN model with the given configuration.
 
@@ -76,7 +80,8 @@ class MultiFidelityNN(SingleFidelityNN):
                          layers_config=layers_config,
                          train_config=train_config,
                          output_units=output_units,
-                         output_activation=output_activation)
+                         output_activation=output_activation,
+                         rate=rate)
 
     def build_model(self) -> Model:
         """
@@ -99,11 +104,18 @@ class MultiFidelityNN(SingleFidelityNN):
         else:
             raise ValueError(f"Unsupported merge_mode: {self.merge_mode}. Use 'add' or 'concat'.")
         
-        for layer in self.layers_config['output_layers'][1:]:
-            merged_output = Dense(layer['units'], activation=layer['activation'], kernel_regularizer=l2(self.coeff))(merged_output)
+        for layer in self.layers_config['output_layers']:
+            merged_output = Dense(layer['units'], 
+                                  activation=layer['activation'], 
+                                  kernel_regularizer=l2(self.coeff),
+                                  kernel_initializer='glorot_uniform')(merged_output)
+            merged_output = Dropout(rate=layer['rate'])(merged_output)
+
 
         # Output layer
-        output = Dense(self.output_units, activation=self.output_activation, kernel_regularizer=l2(self.coeff))(merged_output)
+        output = Dense(self.output_units, 
+                       activation=self.output_activation, 
+                       kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform')(merged_output)
 
         if self.additive_correction is True:
             model_nn = load_model(self.submodel)
@@ -116,7 +128,7 @@ class MultiFidelityNN(SingleFidelityNN):
         model.compile(optimizer=self.train_config.get('optimizer', 'adam'), 
                       loss='mean_squared_error', 
                       metrics=['mean_squared_error'])
-
+        
         return model
 
     def _build_hidden_layers(self, input_layer, fidelity):
@@ -126,12 +138,20 @@ class MultiFidelityNN(SingleFidelityNN):
         :param input_layer: Input layer for a fidelity level.
         :return: Final hidden layer for the corresponding fidelity level.
         """
-        x = Dense(self.layers_config['input_layers'][fidelity][0]['units'], activation=self.layers_config['input_layers'][fidelity][0]['activation'], kernel_regularizer=l2(self.coeff))(input_layer)
+        x = Dense(self.layers_config['input_layers'][fidelity][0]['units'], 
+                  activation=self.layers_config['input_layers'][fidelity][0]['activation'], 
+                  kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform')(input_layer)
+        x = Dropout(rate=self.layers_config['input_layers'][fidelity][0]['rate'])(x)
+        
         for layer in self.layers_config['input_layers'][fidelity][1:]:
-            x = Dense(layer['units'], activation=layer['activation'], kernel_regularizer=l2(self.coeff))(x)
+            x = Dense(layer['units'], 
+                      activation=layer['activation'], 
+                      kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform')(x)
+            x = Dropout(rate=layer['rate'])(x)
         return x
 
-    def kfold_train(self, X_train_fidelities: List[np.ndarray], y_train: np.ndarray) -> None:
+    def kfold_train(self, X_train_fidelities: List[np.ndarray], y_train: np.ndarray, X_test_fidelities=None, y_test=None, step=10) -> None:
+    
         """
         Train the multi-fidelity neural network model using K-Fold cross-validation.
 
@@ -149,19 +169,23 @@ class MultiFidelityNN(SingleFidelityNN):
             X_val_k_fidelities = [X_train[val_index] for X_train in X_train_fidelities]
             y_train_k, y_val_k = y_train[train_index], y_train[val_index]
 
+            if X_test_fidelities!=None:
+                X_val_k_fidelities=X_test_fidelities
+                y_val_k=y_test
+
             # Build the model
             self.model = self.build_model()
 
             # Compile the model
             self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
-
+            
             # Train the model
             self.model.fit(X_train_k_fidelities, y_train_k,
                            epochs=self.train_config['epochs'],
                            batch_size=self.train_config['batch_size'],
                            validation_data=(X_val_k_fidelities, y_val_k),
-                           validation_freq = 10,
-                           callbacks=[LearningRateScheduler(self.lr_scheduler), PrintEveryNEpoch(10, self.train_config['epochs'])],
+                           validation_freq = 1,
+                           callbacks = [LearningRateScheduler(self.lr_scheduler), PrintEveryNEpoch(10, self.train_config['epochs'])],
                            verbose=0)
 
             # Save the model for each fold

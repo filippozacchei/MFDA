@@ -1,6 +1,8 @@
 from fenics import *
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse import diags, lil_matrix
+from scipy.sparse.linalg import spsolve
 
 class GwFlowSolver:
     def __init__(self, resolution, field_mean, field_stdev):
@@ -85,7 +87,6 @@ class GwFlowSolver:
         
         # Set the conductivity
         if np.any(random_field):
-            
             # Make it exponential
             self.conductivity = np.exp(self.field_mean + self.field_stdev*random_field)
 
@@ -120,7 +121,70 @@ class GwFlowSolver:
         # solve(a == L, self.h, self.bcs, 
         #       solver_parameters={"linear_solver": "lu"},
         #       form_compiler_parameters={"optimize": True})
+    
+    def solve_df(self):
+        dx, dy = 1.0 / (self.nx), 1.0 / (self.ny)
         
+        conductivity_flat = self.K.vector().get_local()
+
+        # Map the conductivity to the finite element vertices
+        conductivity_at_vertices = conductivity_flat[self.d2v]
+
+        # Reshape to match the finite difference grid layout
+        conductivity = conductivity_at_vertices.reshape((self.ny + 1, self.nx + 1))
+
+        # Number of grid points
+        num_points = (self.nx+1) * (self.ny+1)
+ 
+        # Create the coefficient matrix A and the right-hand side vector b
+        A = lil_matrix((num_points, num_points))  # Sparse matrix
+        b = np.zeros(num_points)  # RHS vector
+
+        # Map 2D indices to 1D
+        def idx(i, j):
+            return j * (self.nx+1) + i
+
+        # Fill the matrix A and vector b
+        for j in range(self.ny+1):
+            for i in range(self.nx+1):
+                row = idx(i, j)
+
+                if i == 0:  # Left boundary (Dirichlet)
+                    A[row, row] = 1
+                    b[row] = 1.0  # h_in
+                elif i == self.nx:  # Right boundary (Dirichlet)
+                    A[row, row] = 1
+                    b[row] = 0.0  # h_out
+                elif j == 0 or j == self.ny:  # Top and bottom boundaries (Neumann - no flow)
+                    A[row, row] = 1  # Simplification for no-flow boundaries
+                    b[row] = 0.0
+                else:  # Interior points
+                    Kx_left = (conductivity[j, i - 1] + conductivity[j, i]) / 2
+                    Kx_right = (conductivity[j, i + 1] + conductivity[j, i]) / 2
+                    Ky_down = (conductivity[j - 1, i] + conductivity[j, i]) / 2
+                    Ky_up = (conductivity[j + 1, i] + conductivity[j, i]) / 2
+
+                    A[row, idx(i - 1, j)] = -Kx_left / dx**2
+                    A[row, idx(i + 1, j)] = -Kx_right / dx**2
+                    A[row, idx(i, j - 1)] = -Ky_down / dy**2
+                    A[row, idx(i, j + 1)] = -Ky_up / dy**2
+                    A[row, row] = (Kx_left + Kx_right) / dx**2 + (Ky_down + Ky_up) / dy**2
+                    
+
+        # Solve the linear system
+        self.h = Function(self.V)
+        
+        h_flat = spsolve(A.tocsr(), b)
+
+        # Ensure `h_flat` is in the correct order (map grid points to vertices)
+        h_vertices = np.zeros_like(self.h.vector().get_local())
+        h_vertices[self.d2v] = h_flat  # Map finite difference solution to FEM vertices
+
+        # Assign values to the finite element function
+        self.h.vector().set_local(h_vertices)
+        self.h.vector().apply("insert")
+
+
     def compute_flow(self):
         
         self.Q = VectorFunctionSpace(self.mesh, "CG", 1)

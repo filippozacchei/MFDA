@@ -37,6 +37,15 @@ class Model:
         self.solver.set_conductivity(self.random_process.random_field)
         self.solver.solve()
         
+        
+    def solve_df(self, parameters = None):
+        
+        # Solve the problem, given a vector of modes.
+        self.random_process.generate(parameters)
+        self.parameters = self.random_process.parameters
+        self.solver.set_conductivity(self.random_process.random_field)
+        self.solver.solve_df()
+        
     def get_solution(self):
         return np.fromiter(map(self.solver.h, self.x, self.y), dtype=float)
         

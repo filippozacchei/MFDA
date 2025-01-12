@@ -22,8 +22,6 @@ def load_config(config_filepath):
 
     return config
 
-
-
 def load_data(filepath):
     """
     Load data from a CSV file.

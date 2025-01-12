@@ -14,11 +14,11 @@ os.environ['KERAS_BACKEND'] = 'tensorflow'
 np.random.seed(123)
 
 # Simulation Parameters
-RESOLUTIONS = [(50, 50), (25, 25), (10, 10)]
+RESOLUTIONS = [(60, 60), (20, 20), (15,15), (12, 12), (10, 10)]
 FIELD_MEAN = 1
 FIELD_STD_DEV = 1
 LAMB_COV = 0.1
-MKL_VALUES = [64, 64, 32]
+MKL_VALUES = [64, 64, 64, 64, 64]
 NUM_DATAPOINTS = 64
 
 # Set up data grid for evaluation points
@@ -36,6 +36,8 @@ def create_solvers() -> dict:
         "h1": Model(RESOLUTIONS[0], FIELD_MEAN, FIELD_STD_DEV, MKL_VALUES[0], LAMB_COV),
         "h2": Model(RESOLUTIONS[1], FIELD_MEAN, FIELD_STD_DEV, MKL_VALUES[1], LAMB_COV),
         "h3": Model(RESOLUTIONS[2], FIELD_MEAN, FIELD_STD_DEV, MKL_VALUES[2], LAMB_COV),
+        "h4": Model(RESOLUTIONS[3], FIELD_MEAN, FIELD_STD_DEV, MKL_VALUES[3], LAMB_COV),
+        "h5": Model(RESOLUTIONS[4], FIELD_MEAN, FIELD_STD_DEV, MKL_VALUES[4], LAMB_COV),
     }
 
 
@@ -116,6 +118,8 @@ def main() -> None:
     # Synchronize solvers' transmissivity fields
     synchronize_transmissivity(solvers['h1'], solvers['h2'])
     synchronize_transmissivity(solvers['h1'], solvers['h3'])
+    synchronize_transmissivity(solvers['h1'], solvers['h4'])
+    synchronize_transmissivity(solvers['h1'], solvers['h5'])
 
     # Input data for solvers
     input_data = np.ones(NUM_DATAPOINTS)
@@ -124,22 +128,28 @@ def main() -> None:
     execution_times = {
         'h1': time_solver_execution(solvers['h1'], input_data, DATAPOINTS),
         'h2': time_solver_execution(solvers['h2'], input_data, DATAPOINTS),
-        'h3': time_solver_execution(solvers['h3'], input_data, DATAPOINTS)
+        'h3': time_solver_execution(solvers['h3'], input_data, DATAPOINTS),
+        'h4': time_solver_execution(solvers['h4'], input_data, DATAPOINTS),
+        'h5': time_solver_execution(solvers['h5'], input_data, DATAPOINTS),
     }
 
     # Calculate speedups relative to h1
     speedups = {
         'h2': execution_times['h1'] / execution_times['h2'],
-        'h3': execution_times['h1'] / execution_times['h3']
+        'h3': execution_times['h1'] / execution_times['h3'],
+        'h4': execution_times['h1'] / execution_times['h4'],
+        'h5': execution_times['h1'] / execution_times['h5'] 
     }
 
     # Print execution times and speedup results
     print_results(execution_times, speedups)
 
     # Save plots for each solver
-    save_solver_plot(solvers['h1'], '../images/solver_h1.png')
-    save_solver_plot(solvers['h2'], '../images/solver_h2.png')
-    save_solver_plot(solvers['h3'], '../images/solver_h3.png')
+    save_solver_plot(solvers['h1'], '../images/solver_h1_60.png')
+    save_solver_plot(solvers['h2'], '../images/solver_h2_20.png')
+    save_solver_plot(solvers['h3'], '../images/solver_h3_15.png')
+    save_solver_plot(solvers['h4'], '../images/solver_h4_12.png')
+    save_solver_plot(solvers['h5'], '../images/solver_h4_11.png')
 
 
 # Entry point
