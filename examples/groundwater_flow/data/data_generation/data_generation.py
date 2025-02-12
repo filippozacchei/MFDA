@@ -21,9 +21,9 @@ def setup_environment():
     """
     np.random.seed(123)
     n_samples = 128000
-    resolutions = [(50, 50), (25, 25), (10, 10)]
+    resolutions = [(60, 60), (30, 30), (20,20), (15, 15)]
     field_mean, field_stdev, lamb_cov = 1, 1, 0.1
-    mkl_values = [64, 64, 32]
+    mkl_values = [64, 64, 64, 64]
     x_data = y_data = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
     datapoints = np.array(list(product(x_data, y_data)))
     
@@ -72,10 +72,10 @@ def generate_solver_data(solvers, solver_key, samples, datapoints, path_prefix):
     
     # Split data into training and testing sets
     split_idx = int(0.9 * n_samples)
-    np.savetxt(f"{path_prefix}/X_train_{solver_key}.csv", samples[:split_idx], delimiter=",")
-    np.savetxt(f"{path_prefix}/y_train_{solver_key}.csv", data[:split_idx], delimiter=",")
-    np.savetxt(f"{path_prefix}/X_test_{solver_key}.csv", samples[split_idx:], delimiter=",")
-    np.savetxt(f"{path_prefix}/y_test_{solver_key}.csv", data[split_idx:], delimiter=",")
+    np.savetxt(f"{path_prefix}/X_train_{solver_key}_60_3.csv", samples[:split_idx], delimiter=",")
+    np.savetxt(f"{path_prefix}/y_train_{solver_key}_60_3.csv", data[:split_idx], delimiter=",")
+    np.savetxt(f"{path_prefix}/X_test_{solver_key}_60_3.csv", samples[split_idx:], delimiter=",")
+    np.savetxt(f"{path_prefix}/y_test_{solver_key}_60_3.csv", data[split_idx:], delimiter=",")
 
 def project_to_pod_basis(coarse_data, n_components=45):
     """
@@ -99,20 +99,20 @@ def project_and_save_pod(solvers, solver_key, samples, datapoints, path_prefix):
     :param path_prefix: Directory path to save the results.
     """
     n_samples = samples.shape[0]
-    X_train = np.loadtxt(f"{path_prefix}/X_train_{solver_key}.csv", delimiter=",")
+    X_train = np.loadtxt(f"{path_prefix}/X_train_{solver_key}_60_3.csv", delimiter=",")
     coarse_sol_train = np.array([solver_data(solvers[solver_key], datapoints, X_train[i, :]) for i in tqdm(range(int(n_samples * 0.9)), desc=f"Processing {solver_key} samples")])
     
     basis = project_to_pod_basis(coarse_sol_train)
     X_train_pod = coarse_sol_train @ basis
     
-    X_test = np.loadtxt(f"{path_prefix}/X_test_{solver_key}.csv", delimiter=",")
+    X_test = np.loadtxt(f"{path_prefix}/X_test_{solver_key}_60_3.csv", delimiter=",")
     coarse_sol_test = np.array([solver_data(solvers[solver_key], datapoints, X_test[i, :]) for i in tqdm(range(int(n_samples * 0.1)), desc=f"Processing {solver_key} samples")])
     X_test_pod = coarse_sol_test @ basis
     
     # Save projected data and basis
-    np.savetxt(f"{path_prefix}/X_train_{solver_key}_pod.csv", X_train_pod, delimiter=",")
-    np.savetxt(f"{path_prefix}/X_test_{solver_key}_pod.csv", X_test_pod, delimiter=",")
-    np.savetxt(f"{path_prefix}/POD_basis_{solver_key}.csv", basis, delimiter=",")
+    np.savetxt(f"{path_prefix}/X_train_{solver_key}_pod_60_3.csv", X_train_pod, delimiter=",")
+    np.savetxt(f"{path_prefix}/X_test_{solver_key}_pod_60_3.csv", X_test_pod, delimiter=",")
+    np.savetxt(f"{path_prefix}/POD_basis_{solver_key}_60_3.csv", basis, delimiter=",")
 
 def print_simulation_parameters(n_samples, resolutions, field_mean, field_stdev, lamb_cov, mkl_values):
     """
@@ -147,26 +147,28 @@ def main():
     solvers = {
         "h1": Model(resolutions[0], field_mean, field_stdev, mkl_values[0], lamb_cov),
         "h2": Model(resolutions[1], field_mean, field_stdev, mkl_values[1], lamb_cov),
-        "h3": Model(resolutions[2], field_mean, field_stdev, mkl_values[2], lamb_cov)
+        "h3": Model(resolutions[2], field_mean, field_stdev, mkl_values[2], lamb_cov),
+        "h4": Model(resolutions[3], field_mean, field_stdev, mkl_values[2], lamb_cov)
     }    
 
     # Setup random processes between solvers
     setup_random_process(solvers["h1"], solvers["h2"])
     setup_random_process(solvers["h1"], solvers["h3"])
+    setup_random_process(solvers["h1"], solvers["h4"])
 
     print("\nGenerate solver data \n")
 
     # Generate data for all solvers
     samples = generate_samples(n_samples)
 
-    for key in ["h1", "h2", "h3"]:
+    for key in ["h1", "h2", "h3", "h4"]:
         generate_solver_data(solvers, key, samples, datapoints, "../../data")
 
     print("\nProject solution and save POD \n")
     datapoints = np.array(list(product(np.linspace(0.0, 1.0, 10), repeat=2)))
     
     # Perform POD projection and save for all solvers
-    for key in ["h1", "h2", "h3"]:
+    for key in ["h1", "h2", "h3", "h4"]:
         project_and_save_pod(solvers, key, samples, datapoints, "../../data")
 
 if __name__ == "__main__":

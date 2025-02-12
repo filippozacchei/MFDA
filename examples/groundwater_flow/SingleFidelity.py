@@ -62,7 +62,7 @@ def main():
     logging.info("Starting K-Fold training")
     sfnn_model.kfold_train(X_train, y_train)
 
-    plot_results(X_test, y_test, sfnn_model.model)
+    # plot_results(X_test, y_test, sfnn_model.model)
 
     logging.info("Training completed successfully!")
 

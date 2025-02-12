@@ -2,7 +2,7 @@ import os
 import numpy as np
 from typing import List, Dict, Tuple, Any, Callable
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, Dropout
 from tensorflow.keras.regularizers import l2
 from sklearn.model_selection import KFold
 from tensorflow.keras.callbacks import LearningRateScheduler, Callback
@@ -37,7 +37,7 @@ class PrintEveryNEpoch(Callback):
         print("\nTraining complete.")
             
 
-def make_scheduler(coeff: float, mode: str = 'linear') -> Callable[[int, float], float]:
+def make_scheduler(coeff: float, mode: str = 'linear', step=10) -> Callable[[int, float], float]:
     """
     Creates a learning rate scheduler function based on the mode and coefficient.
 
@@ -47,14 +47,14 @@ def make_scheduler(coeff: float, mode: str = 'linear') -> Callable[[int, float],
     """
     if mode == 'linear':
         def scheduler(epoch: int, lr: float) -> float:
-            if epoch < 10:
+            if epoch < step:
                 return lr
             else:
                 return max(lr * coeff, 1e-7)
         return scheduler
     elif mode == 'decay':
         def scheduler(epoch: int, lr: float) -> float:
-            if epoch < 10:
+            if epoch < step:
                 return lr
             else:
                 return lr*(1+coeff*epoch)/(1+coeff*(epoch+1))
@@ -85,7 +85,8 @@ class SingleFidelityNN:
                  layers_config: List[Dict[str, Any]],
                  train_config: Dict[str, Any],
                  output_units: int,
-                 output_activation: str):
+                 output_activation: str,
+                 rate: int = 0.2):                
         """
         Initialize the SingleFidelityNN model with the given configuration.
 
@@ -103,7 +104,8 @@ class SingleFidelityNN:
         self.output_units = output_units
         self.output_activation = output_activation
         self.model = None
-        self.lr_scheduler = make_scheduler(self.train_config['scheduler_coeff'], self.train_config.get('scheduler_mode', 'linear'))
+        self.lr_scheduler = make_scheduler(self.train_config['scheduler_coeff'], self.train_config.get('scheduler_mode', 'linear'),self.train_config.get('step', 10))
+        self.rate = rate
 
     def build_model(self) -> Sequential:
         """
@@ -117,13 +119,15 @@ class SingleFidelityNN:
                               activation=self.layers_config[0]['activation'], 
                               kernel_regularizer=l2(self.coeff)) 
                         ])
+        model.add(Dropout(rate=self.layers_config[0]['rate']))
 
         # Add hidden layers
         for layer in self.layers_config[1:]:
             model.add(Dense(layer['units'], 
                             activation=layer['activation'], 
                             kernel_regularizer=l2(self.coeff)))
-
+            model.add(Dropout(rate=layer['rate']))
+            
         # Add output layer
         model.add(Dense(self.output_units, activation=self.output_activation, kernel_regularizer=l2(self.coeff)))
 
