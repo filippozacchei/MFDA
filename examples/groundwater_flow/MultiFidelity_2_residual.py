@@ -89,6 +89,7 @@ def main():
         layers_config=config["layers_config"],
         train_config=config["train_config"],
         output_units=y_train.shape[1],
+        residual=config["residual"],
         output_activation=config["output_activation"]
     )
 
