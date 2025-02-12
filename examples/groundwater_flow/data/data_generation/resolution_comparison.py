@@ -11,12 +11,12 @@ os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 
 # Global Configuration
-np.random.seed(123)
+np.random.seed(12)
 
 # Simulation Parameters
-RESOLUTIONS = [(60, 60), (20, 20), (15,15), (12, 12), (10, 10)]
+RESOLUTIONS = [(100, 100), (50, 50), (25,25), (10, 10), (20, 20)]
 FIELD_MEAN = 1
-FIELD_STD_DEV = 1
+FIELD_STD_DEV = 10
 LAMB_COV = 0.1
 MKL_VALUES = [64, 64, 64, 64, 64]
 NUM_DATAPOINTS = 64
@@ -96,13 +96,17 @@ def print_results(execution_times: dict, speedups: dict) -> None:
         print(f"{solver_key}: {speedup:.2f}x speedup")
 
 
-def save_solver_plot(solver: Model, filename: str, limits: list = [-2, 4.5]) -> None:
+def save_solver_plot(solver: Model, filename1: str, filename2: str, limits: list = [-1, 2.5]) -> None:
     """
     Saves the plot of the solver's results within the given limits to a file.
     """
-    solver.plot(limits=limits)
-    plt.savefig(filename, format='png', dpi=300, bbox_inches='tight')
-    print(f"\nPlot saved to {filename}\n")
+    solver.plot()
+    plt.savefig(filename1, format='png', dpi=300, bbox_inches='tight')
+    print(f"\nPlot saved to {filename1}\n")
+    
+    solver.plot(transform_field=True)
+    plt.savefig(filename2, format='png', dpi=300, bbox_inches='tight')
+    print(f"\nPlot saved to {filename2}\n")
 
 
 def main() -> None:
@@ -122,7 +126,7 @@ def main() -> None:
     synchronize_transmissivity(solvers['h1'], solvers['h5'])
 
     # Input data for solvers
-    input_data = np.ones(NUM_DATAPOINTS)
+    input_data = np.random.normal(size=(NUM_DATAPOINTS,1))
 
     # Measure execution times for each solver
     execution_times = {
@@ -145,11 +149,11 @@ def main() -> None:
     print_results(execution_times, speedups)
 
     # Save plots for each solver
-    save_solver_plot(solvers['h1'], '../images/solver_h1_60.png')
-    save_solver_plot(solvers['h2'], '../images/solver_h2_20.png')
-    save_solver_plot(solvers['h3'], '../images/solver_h3_15.png')
-    save_solver_plot(solvers['h4'], '../images/solver_h4_12.png')
-    save_solver_plot(solvers['h5'], '../images/solver_h4_11.png')
+    save_solver_plot(solvers['h1'], '../../images/solver100_h1_cov001.png','../../images/solver100_h1_cov001_log.png')
+    save_solver_plot(solvers['h2'], '../../images/solver100_h2_cov001.png','../../images/solver100_h2_cov001_log.png')
+    save_solver_plot(solvers['h3'], '../../images/solver100_h3_cov001.png','../../images/solver100_h3_cov001_log.png')
+    save_solver_plot(solvers['h4'], '../../images/solver100_h4_cov001.png','../../images/solver100_h4_cov001_log.png')
+    save_solver_plot(solvers['h5'], '../../images/solver100_h5_cov001.png','../../images/solver100_h5_cov001_log.png')
 
 
 # Entry point

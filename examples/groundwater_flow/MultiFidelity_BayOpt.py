@@ -77,7 +77,7 @@ def main():
 
     def objective(trial):
         # Hyperparameter suggestions
-        neurons_per_layer = trial.suggest_int("neurons", 4, 9)
+        neurons_per_layer = trial.suggest_int("neurons", 5, 10)
         dropout_rate1 = trial.suggest_uniform("dropout_rate1", 0.0, 0.25)
         dropout_rate2 = trial.suggest_uniform("dropout_rate2", 0.0, 0.25)
         dropout_rate3 = trial.suggest_uniform("dropout_rate3", 0.0, 0.25)
@@ -85,11 +85,11 @@ def main():
         activations1 = trial.suggest_categorical("activation1", ["gelu", "tanh", "selu",  "relu", "linear"])
         activations2 = trial.suggest_categorical("activation2", ["gelu", "tanh", "selu",  "relu", "linear"])
         activations3 = trial.suggest_categorical("activation3", ["gelu", "tanh", "selu",  "relu", "linear"])
-        n_layers1 = trial.suggest_int("n_layers1", 0, 6)
-        n_layers2 = trial.suggest_int("n_layers2", 0, 6)
-        n_layers3 = trial.suggest_int("n_layers3", 0, 6)
-        n_layers4 = trial.suggest_int("n_layers4", 0, 6)
-        n_output = trial.suggest_int("n_output_layers", 0, 6)
+        n_layers1 = trial.suggest_int("n_layers1", 0, 7)
+        n_layers2 = trial.suggest_int("n_layers2", 0, 7)
+        n_layers3 = trial.suggest_int("n_layers3", 0, 7)
+        n_layers4 = trial.suggest_int("n_layers4", 0, 7)
+        n_output = trial.suggest_int("n_output_layers", 0, 7)
 
         # Build layer configuration
         layers_config = build_layers_config(n_layers1,
@@ -127,6 +127,7 @@ def main():
             layers_config=layers_config,
             train_config=train_config,
             output_units=y_train.shape[1],
+            residual=config["residual"],
             output_activation=config["output_activation"]
         )
 
@@ -151,7 +152,7 @@ def main():
 
     # Run Optuna optimization
     study = optuna.create_study(direction="minimize")
-    study.optimize(objective, n_trials=2000, n_jobs=4)
+    study.optimize(objective, n_trials=4000, n_jobs=4)
 
     logging.info(f"Best Hyperparameters: {study.best_params}")
     logging.info("Training completed successfully!")

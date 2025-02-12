@@ -20,35 +20,37 @@ def prepare_data(config):
     :return: X_train, y_train, X_test, y_test arrays.
     """
     logging.info("Preparing data for multi-fidelity model")
-    X_train_param, X_train_coarse1, X_train_coarse2, y_train = prepare_data_multi_fidelity(
+    X_train_param, X_train_coarse1, X_train_coarse2, X_train_coarse3, y_train = prepare_data_multi_fidelity(
         config['n_sample'], 
         config["y_train"],
         config["X_train_param"], 
         config["X_train_coarse1"],
-        config["X_train_coarse2"]
+        config["X_train_coarse2"],
+        config["X_train_coarse3"]
         )
-    X_test_param, X_test_coarse1, X_test_coarse2, y_test = prepare_data_multi_fidelity(
+    X_test_param, X_test_coarse1, X_test_coarse2, X_test_coarse3, y_test = prepare_data_multi_fidelity(
         12800,
         config["y_test"],
         config["X_test_param"], 
         config["X_test_coarse1"],
-        config["X_test_coarse2"]
+        config["X_test_coarse2"],
+        config["X_test_coarse3"]
     )
-    return X_train_param, X_train_coarse1, X_train_coarse2, y_train, X_test_param, X_test_coarse1, X_test_coarse2, y_test
+    return X_train_param, X_train_coarse1, X_train_coarse2, X_train_coarse3, y_train, X_test_param, X_test_coarse1, X_test_coarse2, X_test_coarse3, y_test
 
 def main():         
     # Add the 'models' directory to the Python path
     sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_models/'))
 
     # Load configuration
-    config_filepath = 'config/config_MultiFidelity2.json'
+    config_filepath = 'config/config_MultiFidelity1.json'
     config = load_config(config_filepath)
 
     destination_folder = config["train_config"]["model_save_path"]
     shutil.copy(config_filepath, destination_folder)
 
     # Prepare training and testing data
-    X_train_param, X_train_coarse1, X_train_coarse2, y_train, X_test_param, X_test_coarse1, X_test_coarse2, y_test = prepare_data(config)
+    X_train_param, X_train_coarse1, X_train_coarse2, X_train_coarse3, y_train, X_test_param, X_test_coarse1, X_test_coarse2, X_test_coarse3, y_test = prepare_data(config)
     
     # X_train_coarse2 = []
     # X_test_coarse2 = []
@@ -68,8 +70,6 @@ def main():
     logging.info(f"Training data shape: X_train: {X_train_param.shape}, y_train: {y_train.shape}")
     logging.info(f"Test data shape: X_test: {X_test_param.shape}, y_test: {y_test.shape}")
 
-    # Initialize the multiFidelityNN model
-    logging.info("Correctness of Multi Fidelity Data")
     if X_test_coarse1.shape == y_test.shape:
         logging.info(f"\nMSE coarse simulation 1 train:  {np.sqrt(np.mean((X_train_coarse1 - y_train)**2)):.4e}")
         logging.info(f"\nMSE coarse simulation 1 test:  {np.sqrt(np.mean((X_test_coarse1 - y_test)**2)):.4e}")
@@ -77,18 +77,25 @@ def main():
     if X_test_coarse2.shape == y_test.shape:
         logging.info(f"\nMSE coarse simulation 2 train:  {np.sqrt(np.mean((X_train_coarse2 - y_train)**2)):.4e}")
         logging.info(f"\nMSE coarse simulation 2 test:  {np.sqrt(np.mean((X_test_coarse2 - y_test)**2)):.4e}")
+        
+    if X_test_coarse3.shape == y_test.shape:
+        logging.info(f"\nMSE coarse simulation 3 train:  {np.sqrt(np.mean((X_train_coarse3 - y_train)**2)):.4e}")
+        logging.info(f"\nMSE coarse simulation 3 test:  {np.sqrt(np.mean((X_test_coarse3 - y_test)**2)):.4e}")
 
+    
     # Initialize the multiFidelityNN model
     logging.info("Initializing the MultiFidelityNN model")
     mfnn_model = MultiFidelityNN(
         input_shapes=[(X_train_param.shape[1],),
-                      (X_train_coarse1.shape[1],),
-                      (X_train_coarse2.shape[1],)],
+                      (X_train_coarse1.shape[1],), 
+                      (X_train_coarse2.shape[1],), 
+                      (X_train_coarse3.shape[1],),                       ],
         merge_mode=config["merge_mode"],
         coeff=config["coeff"],
         layers_config=config["layers_config"],
         train_config=config["train_config"],
         output_units=y_train.shape[1],
+        residual=config["residual"],
         output_activation=config["output_activation"]
     )
 
@@ -100,11 +107,11 @@ def main():
 
     # # Train the model using K-Fold cross-validation
     logging.info("Starting K-Fold training")
-    mfnn_model.kfold_train([X_train_param,X_train_coarse1,X_train_coarse2], y_train)
+    mfnn_model.kfold_train([X_train_param, X_train_coarse1, X_train_coarse2, X_train_coarse3], y_train)
     
     # plot_results(X_test, y_test, mfnn_model.model)
     
-    print("Test Error: ", np.mean((mfnn_model.model([X_test_param,X_test_coarse1,X_test_coarse2])-y_test)**2))
+    print("Test Error: ", np.mean((mfnn_model.model([X_test_param,X_test_coarse1, X_test_coarse2, X_test_coarse3])-y_test)**2))
     
     logging.info("Training completed successfully!")
 

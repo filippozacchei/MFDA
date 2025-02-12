@@ -3,10 +3,10 @@
         "epochs": 1000,
         "batch_size": 64,
         "n_splits": 4,
-        "scheduler_coeff": 0.01,
-        "scheduler_mode": "decay",
+        "scheduler_coeff": 0.99,
+        "scheduler_mode": "linear",
         "optimizer": "adam",
-        "model_save_path": "./models/single_fidelity/resolution_30/samples_64000/"
+        "model_save_path": "./models/single_fidelity_100/resolution_10/samples_64000/"
     },
 
     "layers_config": [
@@ -19,10 +19,10 @@
     ],
 
     "n_sample": 64000,
-    "X_train": "./data/X_train_h2_60_3.csv",
-    "y_train": "./data/y_train_h2_60_3.csv",
-    "X_test": "./data/X_test_h2_60_3.csv",
-    "y_test": "./data/y_test_h2_60_3.csv",
+    "X_train": "./data/data/X_train_h4_100_01.csv",
+    "y_train": "./data/data/y_train_h4_100_01.csv",
+    "X_test": "./data/data/X_test_h4_100_01.csv",
+    "y_test": "./data/data/y_test_h4_100_01.csv",
     "coeff": 1e-7,
     "output_activation": "linear" 
 }

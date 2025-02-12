@@ -10,11 +10,12 @@ from utils import prepare_data_single_fidelity
 # Parameters
 n_splits = 4
 n_samples = [1000, 2000, 4000, 8000, 16000, 32000, 64000]
-discretizations = ['h1', 'h2', 'h3']
-resolutions = [50, 25, 10]
-colors = {'h1': 'blue', 'h2': 'green', 'h3': 'red'}
-markers = {'h1': 'o', 'h2': 's', 'h3': 'D'}
-linestyles = {'h1': '-', 'h2': '--', 'h3': ':'}
+discretizations = ['h1','h4']
+grids = {"h1": 100, "h4": 10}
+resolutions = [10]
+colors = {'h1': 'blue', 'h4': 'green', 'h3': 'red'}
+markers = {'h1': 'o', 'h4': 's', 'h3': 'D'}
+linestyles = {'h1': '-', 'h4': '--', 'h3': ':'}
 
 # Prepare dictionary for RMSE results
 rmse_test_all = {disc: [] for disc in discretizations}
@@ -26,10 +27,10 @@ for discretization in discretizations:
     # Load training and test data for each discretization
     X_train, y_train, X_test, y_test = prepare_data_single_fidelity(
         115200,
-        f"../data/X_train_{discretization}.csv",
-        f"../data/y_train_{discretization}.csv",
-        f"../data/X_test_{discretization}.csv",
-        f"../data/y_test_{discretization}.csv"
+        f"../data/data/X_train_{discretization}_100_01.csv",
+        f"../data/data/y_train_{discretization}_100_01.csv",
+        f"../data/data/X_test_{discretization}_100_01.csv",
+        f"../data/data/y_test_{discretization}_100_01.csv"
     )
 
     for n_sample in n_samples:
@@ -43,7 +44,7 @@ for discretization in discretizations:
         
         for fold_var, (train_index, val_index) in enumerate(kf.split(y), start=1):
             # Load model and evaluate RMSE
-            model_path = f'../models/single_fidelity/resolution_{discretization}/samples_{n_sample}/model_fold_{fold_var}.keras'
+            model_path = f'../models/single_fidelity_100/resolution_{grids[discretization]}/samples_{n_sample}/model_fold_{fold_var}.keras'
             model = load_model(model_path)
             rmse_test.append(np.sqrt(np.mean((model(X_test, training=False).numpy() - y_test) ** 2)))
             print(model.summary())
@@ -54,7 +55,7 @@ for discretization in discretizations:
         predictions_test = np.mean(np.array(predictions_test),axis=0)
 
         # Define the directory path 
-        output_dir = f'../data/predictions_single_fidelity/resolution_{discretization}/samples_{n_sample}/'
+        output_dir = f'../data/predictions_single_fidelity_100/resolution_{grids[discretization]}/samples_{n_sample}/'
 
         # Create the directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
@@ -67,9 +68,9 @@ for discretization in discretizations:
         rmse_test_all[discretization].append(rmse_test)
 
 
-colors = {'h1': '#1f77b4', 'h2': '#ff7f0e', 'h3': '#2ca02c'}  # Colorblind-friendly colors
-linestyles = {'h1': '-', 'h2': '--', 'h3': '-.'}
-markers = {'h1': 'o', 'h2': 's', 'h3': 'D'}
+colors = {'h1': '#1f77b4', 'h4': '#ff7f0e', 'h3': '#2ca02c'}  # Colorblind-friendly colors
+linestyles = {'h1': '-', 'h4': '--', 'h3': '-.'}
+markers = {'h1': 'o', 'h4': 's', 'h3': 'D'}
 
 # Create figure with enhanced size and clarity
 plt.figure(figsize=(12, 8))
@@ -100,14 +101,14 @@ for d in discretizations:
     plt.plot(pos, np.mean(rmse_test_all[d], axis=1), color=colors[d], linestyle=linestyles[d], linewidth=2.5)
 
 # Add theoretical convergence line
-convergence_line = 1 * np.sqrt(64000) / np.sqrt(n_samples) * np.mean(rmse_test_all['h2'][-1])
+convergence_line = 1 * np.sqrt(64000) / np.sqrt(n_samples) * np.mean(rmse_test_all['h4'][-1])
 plt.plot(n_samples, convergence_line, 'k--', linewidth=2, label=r'$\propto \frac{1}{\sqrt{n}}$')
 
 # Plot enhancements
 plt.xlabel('Number of Data Samples', fontsize=16, labelpad=10)
 plt.ylabel('Test RMSE', fontsize=16, labelpad=10)
 plt.legend(custom_lines + [plt.Line2D([0], [0], color='black', linestyle='--', lw=2)],
-           [f'{r} resolution' for r in ['$h_1$=0.01', '$h_2$=0.04', '$h_3$=0.1']] + [r'$\propto \frac{1}{\sqrt{n}}$'],
+           [f'{r} resolution' for r in ['$h_1$=0.01', '$h_4$=0.1']] + [r'$\propto \frac{1}{\sqrt{n}}$'],
            loc='upper right', fontsize=12, frameon=False)
 plt.grid(True, linestyle='--', alpha=0.7)
 plt.xscale('log')

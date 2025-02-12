@@ -55,6 +55,7 @@ class MultiFidelityNN(SingleFidelityNN):
                  output_activation: str,
                  merge_mode: str = 'add',
                  correction = False,
+                 residual = False,
                  submodel = None,
                  rate = 0.2):
         """
@@ -71,6 +72,7 @@ class MultiFidelityNN(SingleFidelityNN):
         self.input_shapes = input_shapes
         self.merge_mode = merge_mode
         self.additive_correction = correction
+        self.residual = residual
 
         if self.additive_correction is True:
             self.submodel = submodel
@@ -112,6 +114,9 @@ class MultiFidelityNN(SingleFidelityNN):
             merged_output = Dropout(rate=layer['rate'])(merged_output)
 
 
+        if self.residual is True:
+            merged_output = Concatenate()([merged_output]+inputs)
+
         # Output layer
         output = Dense(self.output_units, 
                        activation=self.output_activation, 
@@ -122,6 +127,7 @@ class MultiFidelityNN(SingleFidelityNN):
             model_nn.trainable = False
             output_lf = model_nn(inputs[0])
             output = Add()([output,output_lf])
+        
 
         # Create and compile the model
         model = Model(inputs=inputs, outputs=output)
@@ -165,6 +171,9 @@ class MultiFidelityNN(SingleFidelityNN):
             print(f"Training fold {fold_var}...")
 
             # Split data into training and validation sets for each fidelity level
+            print(len(X_train_fidelities))
+            print(X_train_fidelities[0].shape)
+            print(X_train_fidelities[1].shape)
             X_train_k_fidelities = [X_train[train_index] for X_train in X_train_fidelities]
             X_val_k_fidelities = [X_train[val_index] for X_train in X_train_fidelities]
             y_train_k, y_val_k = y_train[train_index], y_train[val_index]
