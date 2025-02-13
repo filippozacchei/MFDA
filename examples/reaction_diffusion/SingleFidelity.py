@@ -5,7 +5,7 @@ import logging
 import shutil
 import numpy as np
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 # Add required paths
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src'))
@@ -75,7 +75,7 @@ def load_and_process_data(config, num_modes=10):
     X_test, y_test = reshape_for_dense_nn(X_test, y_test)
 
     # **Apply feature scaling**
-    X_scaler = StandardScaler().fit(X_train)
+    X_scaler = MinMaxScaler().fit(X_train)
     y_scaler = StandardScaler().fit(y_train)
 
     X_train = X_scaler.transform(X_train)
@@ -122,7 +122,7 @@ def train_model(config, X_train, y_train, X_test, y_test, Sigma):
 
     logging.info("Building and training the SingleFidelityNN model.")
     sfnn_model.build_model()
-    # sfnn_model.train(X_train, y_train, X_test, y_test)
+    sfnn_model.train(X_train, y_train, X_test, y_test)
 
     logging.info("Model training completed successfully!")
 
@@ -137,7 +137,7 @@ def evaluate_model(config, X_test, U, Sigma, u_test_snapshots, y_scaler):
     model = tf.keras.models.load_model(model_path)
 
     logging.info("Performing POD-based reconstruction...")
-    reconstructed, error = reconstruct(U, Sigma, y_scaler.inverse_transform(model.predict(X_test)), num_modes=10, original_snapshots=u_test_snapshots)
+    reconstructed, error = reconstruct(U, Sigma, y_scaler.inverse_transform(model.predict(X_test)), num_modes=14, original_snapshots=u_test_snapshots)
 
     logging.info(f"RMSE Test Error: {error:.6f}")
 
@@ -155,7 +155,7 @@ def main():
     shutil.copy(config_filepath, destination_folder)
 
     # Prepare datasets
-    X_train, y_train, X_test, y_test, U, Sigma, u_test_snapshots, _, y_scaler = load_and_process_data(config, num_modes=10)
+    X_train, y_train, X_test, y_test, U, Sigma, u_test_snapshots, _, y_scaler = load_and_process_data(config, num_modes=14)
     
     # Train the model
     train_model(config, X_train, y_train, X_test, y_test, Sigma)
@@ -164,7 +164,7 @@ def main():
     model = evaluate_model(config, X_test, U, Sigma, u_test_snapshots, y_scaler)
     
     prediction = y_scaler.inverse_transform(model.predict(X_test))
-    prediction = reconstruct(U,Sigma,prediction,num_modes=10)
+    prediction = reconstruct(U,Sigma,prediction,num_modes=14)
     n = int(np.sqrt(prediction.shape[0]/2))
     print(prediction.shape)
     plot_2d_system_prediction(u_test_snapshots, train_data['x'], train_data['y'], n, 101)

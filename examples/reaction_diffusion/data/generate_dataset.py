@@ -3,6 +3,7 @@ import scipy.io
 from scipy.fftpack import fft2, ifft2
 from scipy.integrate import ode
 import matplotlib.pyplot as plt
+import logging
 
 np.random.seed(41) # 41 train, 42 test
 
@@ -77,9 +78,7 @@ def reaction_diffusion_rhs_real(t, uvt, K22, d1, beta, n, N):
 for i in range(num_samples):
     d1 = d1_values[i]
     beta = beta_values[i]
-    print(f"Simulating {i} sample for d1 = {d1:.4f}, beta = {beta:.4f}")
-    
-    # Initial conditions
+    print(f"Simulating {i} sample for d1 = {d1:.4f}, beta = {beta:.4f}", flush=True)    # Initial conditions
     u = np.zeros((n, n, len(t)))
     v = np.zeros((n, n, len(t)))
     u[:, :, 0] = np.tanh(np.sqrt(X**2 + Y**2)) * np.cos(np.angle(X + 1j * Y) - np.sqrt(X**2 + Y**2))
@@ -151,33 +150,33 @@ with h5py.File(output_name, 'w') as h5file:
 print("Dataset saved in HDF5 format for training.")
 
 # Visualization function
-def visualize_solution(data):
-    x = data['x']
-    y = data['y']
-    u = data['u']
-    v = data['v']
-    t = data['t']
+# def visualize_solution(data):
+#     x = data['x']
+#     y = data['y']
+#     u = data['u']
+#     v = data['v']
+#     t = data['t']
     
-    for j in range(0, len(t), 5):
-        plt.figure(figsize=(12, 5))
+#     for j in range(0, len(t), 5):
+#         plt.figure(figsize=(12, 5))
         
-        plt.subplot(1, 2, 1)
-        plt.pcolormesh(x, y, u[:, :, j], shading='auto', cmap='jet')
-        plt.colorbar()
-        plt.title(f'u at t = {t[j]:.2f}')
-        plt.xlabel('x')
-        plt.ylabel('y')
+#         plt.subplot(1, 2, 1)
+#         plt.pcolormesh(x, y, u[:, :, j], shading='auto', cmap='jet')
+#         plt.colorbar()
+#         plt.title(f'u at t = {t[j]:.2f}')
+#         plt.xlabel('x')
+#         plt.ylabel('y')
         
-        plt.subplot(1, 2, 2)
-        plt.pcolormesh(x, y, v[:, :, j], shading='auto', cmap='jet')
-        plt.colorbar()
-        plt.title(f'v at t = {t[j]:.2f}')
-        plt.xlabel('x')
-        plt.ylabel('y')
-        plt.show()
-        plt.pause(0.1)
-        plt.close()
+#         plt.subplot(1, 2, 2)
+#         plt.pcolormesh(x, y, v[:, :, j], shading='auto', cmap='jet')
+#         plt.colorbar()
+#         plt.title(f'v at t = {t[j]:.2f}')
+#         plt.xlabel('x')
+#         plt.ylabel('y')
+#         plt.show()
+#         plt.pause(0.1)
+#         plt.close()
 
-# Load and visualize some results
-visualize_solution(dataset[0])
-visualize_solution(dataset[1])
+# # Load and visualize some results
+# visualize_solution(dataset[0])
+# visualize_solution(dataset[1])

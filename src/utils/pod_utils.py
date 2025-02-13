@@ -52,7 +52,7 @@ def randomized_svd(snapshots, n_components=100):
 
 def reconstruct(U, sigma, time_coefficients, num_modes, original_snapshots=None):
     """Reconstructs data using POD basis and computes error efficiently."""
-    reconstructed = U[:,:num_modes] @ (time_coefficients * sigma[:num_modes]).T  # Element-wise multiplication
+    reconstructed = U[:,:num_modes] @ (time_coefficients[:,:num_modes] * sigma[:num_modes]).T  # Element-wise multiplication
     if original_snapshots is not None:
         error_rmse = np.mean(np.linalg.norm(original_snapshots - reconstructed,axis=0,ord=1)/np.linalg.norm(original_snapshots,axis=0,ord=1))
         return reconstructed, error_rmse 

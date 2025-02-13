@@ -45,22 +45,22 @@ if __name__ == "__main__":
     
     # Reshape data into 2D snapshots
     logging.info("Reshaping training and testing data.")
-    u_train_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'][:20],train_data['v'][:20])
-    u_test_snapshots = reshape_to_pod_2d_system_snapshots(test_data['u'][:5],test_data['v'][:5])
+    u_train_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'],train_data['v'])
+    u_test_snapshots = reshape_to_pod_2d_system_snapshots(test_data['u'],test_data['v'])
     print(u_train_snapshots.shape)
     # Compute POD using randomized SVD
     logging.info("Computing POD basis using randomized SVD.")
     U, Sigma, VT = randomized_svd(u_train_snapshots, n_components=100)
-    VT_test = project(U, Sigma, u_test_snapshots)
+    VT_test = project(U, Sigma, u_test_snapshots, num_modes=100)
     
     # Reconstruction and error computation for training data
     logging.info("Reconstructing training data and computing error.")
-    _, error_rmse_train = reconstruct(U, Sigma, VT, u_train_snapshots)
+    _, error_rmse_train = reconstruct(U, Sigma, VT, 100, u_train_snapshots)
     logging.info(f"Train Reconstruction RMSE Error: {error_rmse_train:.12f}")
     
     # Reconstruction and error computation for testing data
     logging.info("Reconstructing testing data and computing error.")
-    _, error_rmse_test = reconstruct(U, Sigma, VT_test, u_test_snapshots)
+    _, error_rmse_test = reconstruct(U, Sigma, VT_test, 100, u_test_snapshots)
     logging.info(f"Test Reconstruction RMSE Error: {error_rmse_test:.12f}")
     
     # Save computed POD basis
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     # Truncated reconstruction (using only 21 modes)
     logging.info("Performing truncated reconstruction using 21 modes.")
     for i in range(100):
-        _, error_rmse_test = reconstruct(U[:, :i], Sigma[:i], VT_test[:, :i], u_test_snapshots)
+        _, error_rmse_test = reconstruct(U, Sigma, VT_test, i, u_test_snapshots)
         logging.info(f"Test truncated Reconstruction RMSE Error for {i} modes: {error_rmse_test:.12f}")
     
     logging.info("POD processing pipeline completed successfully.")
