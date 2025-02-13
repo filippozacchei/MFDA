@@ -207,3 +207,27 @@ class MultiFidelityNN(SingleFidelityNN):
                 print(f"Error saving model for fold {fold_var}: {e}")
 
             fold_var += 1
+            
+    def train(self, X_train_fidelities: List[np.ndarray], y_train: np.ndarray, X_test_fidelities=None, y_test=None, step=10) -> None:
+
+        # Build the model
+        self.model = self.build_model()
+
+        # Compile the model
+        self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
+        
+        # Train the model
+        self.model.fit(X_train_fidelities, y_train,
+                        epochs=self.train_config['epochs'],
+                        batch_size=self.train_config['batch_size'],
+                        validation_data=(X_test_fidelities, y_test),
+                        validation_freq = 1,
+                        callbacks = [LearningRateScheduler(self.lr_scheduler), PrintEveryNEpoch(10, self.train_config['epochs'])],
+                        verbose=0)
+
+        try:
+            model_save_path = os.path.join(self.train_config['model_save_path'], f'model.keras')
+            self.model.save(model_save_path)
+        except Exception as e:
+            print(f"Error saving model: {e}")
+        return

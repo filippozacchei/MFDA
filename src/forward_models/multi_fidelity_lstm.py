@@ -5,6 +5,7 @@ from tensorflow.keras.callbacks import LearningRateScheduler, Callback
 import numpy as np
 import os
 from sklearn.model_selection import KFold
+from multi_fidelity_nn import *
 
 class MultiFidelityLSTM(MultiFidelityNN):
     def __init__(self,
@@ -18,10 +19,7 @@ class MultiFidelityLSTM(MultiFidelityNN):
                  correction=False,
                  residual=False,
                  submodel=None,
-                 rate=0.2,
-                 lstm_before_merge=False,
-                 lstm_after_merge=False):
-        self.lstm_after_merge = lstm_after_merge
+                 rate=0.2):
         
         super().__init__(input_shapes=input_shapes,
                          coeff=coeff,
@@ -38,10 +36,10 @@ class MultiFidelityLSTM(MultiFidelityNN):
     def build_model(self):
         # Input layers for each fidelity level
         inputs = [Input(shape=shape) for shape in self.input_shapes]
-        fidelities =  [item for item in self.layers_config['layers']]
+        fidelities =  [item for item in self.layers_config['input_layers']]
 
         # Hidden layers for each fidelity level
-        fidelity_layers = [self._build_hidden_layers(input_layer,fidelity) for (input_layer,fidelity) in zip(inputs,fidelities)]
+        fidelity_layers = [self._build_hidden_layers(input_layer,fidelity,"input_layers") for (input_layer,fidelity) in zip(inputs,fidelities)]
         
         # Merge fidelity layers
         if self.merge_mode == 'add':
@@ -51,7 +49,7 @@ class MultiFidelityLSTM(MultiFidelityNN):
         else:
             raise ValueError(f"Unsupported merge_mode: {self.merge_mode}. Use 'add' or 'concat'.")
         
-        merged_output = self._build_hidden_layers(merged_output, self.layers_config['layers']['output'])
+        merged_output = self._build_hidden_layers(merged_output, "output", "output_layers")
         
         if self.residual:
             merged_output = Concatenate()([merged_output] + inputs)
@@ -63,27 +61,27 @@ class MultiFidelityLSTM(MultiFidelityNN):
         model.compile(optimizer=self.train_config.get('optimizer', 'adam'),
                       loss='mean_squared_error',
                       metrics=['mean_squared_error'])
+        
+        print(model.summary())
         return model
     
-    def _build_hidden_layers(self, input_layer, fidelity):
+    def _build_hidden_layers(self, input_layer, fidelity, layers):
         """
         Build hidden layers for each input fidelity level.
 
         :param input_layer: Input layer for a fidelity level.
         :return: Final hidden layer for the corresponding fidelity level.
         """
-        x = Dense(self.layers_config['layers'][fidelity][0]['units'], 
-                  activation=self.layers_config['layers'][fidelity][0]['activation'], 
-                  kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform')(input_layer)
-        x = Dropout(rate=self.layers_config['layers'][fidelity][0]['rate'])(x)
-        
-        for layer in self.layers_config['layers'][fidelity][1:]:
+        x=input_layer
+        print(layers)
+        print(fidelity)
+        for layer in self.layers_config[layers][fidelity]:
             if layer["type"] == "Dense":
                 x = Dense(layer['units'], 
                         activation=layer['activation'], 
                         kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform')(x)
             elif layer["type"] == "LSTM":
-                x = LSTM(layer['units'], return_sequences=False,
+                x = LSTM(layer['units'], return_sequences=True,
                         activation=layer['activation'],
                         kernel_regularizer=l2(self.coeff))(input_layer)
             x = Dropout(rate=layer['rate'])(x)

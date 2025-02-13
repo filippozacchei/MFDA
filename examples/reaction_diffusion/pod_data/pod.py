@@ -45,8 +45,8 @@ if __name__ == "__main__":
     
     # Reshape data into 2D snapshots
     logging.info("Reshaping training and testing data.")
-    u_train_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'][:20],train_data['v'][:20])
-    u_test_snapshots = reshape_to_pod_2d_system_snapshots(test_data['u'][:5],test_data['v'][:5])
+    u_train_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'],train_data['v'])
+    u_test_snapshots = reshape_to_pod_2d_system_snapshots(test_data['u'],test_data['v'])
     print(u_train_snapshots.shape)
     # Compute POD using randomized SVD
     logging.info("Computing POD basis using randomized SVD.")
