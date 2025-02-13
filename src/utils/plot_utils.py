@@ -42,7 +42,7 @@ def plot_2d_system_pod_modes(U, x, y, n, num_modes=15):
         plt.tight_layout()
         plt.show()
         
-def plot_2d_system_prediction(U, x, y, n, n_steps=1000):
+def plot_2d_system_prediction(U, x, y, n, n_steps=1000, save_path=None):
     """Visualizes the first few POD modes for U and V side by side"""
     grid_points = n * n
 
@@ -80,8 +80,8 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=1000):
 
     # Create animation
     ani = animation.FuncAnimation(fig, update, frames=n_steps, interval=100, blit=False)
-
-    plt.show()
+    ani.save(save_path, writer='ffmpeg', fps=30)
+    print(f"Animation saved as {save_path}")
 
 def plot_variance(Sigma):
     """Plots cumulative variance captured by singular values."""

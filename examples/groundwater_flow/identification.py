@@ -26,11 +26,14 @@ sys.path.append('./data/data_generation/')
 from model import Model
 from utils import *
 
-case = "2-step"  # Options: "2-step"/"1-step"/"FOM"
+case = "1-step"  # Options: "2-step"/"1-step"/"FOM"
 
 # MCMC Parameters
-noise        = 0.01
+noise        = 0.001
 scaling      = 0.05
+scaling1     = 10
+scaling2     = 2
+scaling3     = 1
 n_iter       = 125000
 burnin       = 25000
 thin         = 1000
@@ -45,18 +48,19 @@ X_values = np.loadtxt('data/X_test_h1.csv', delimiter=',')
 y_values = np.loadtxt('data/y_test_h1.csv', delimiter=',')
 
 # Resolution Parameters for Different Solvers
-resolutions = [(50, 50), (25, 25), (10, 10)]
+resolutions = [(100, 100), (50, 50), (25, 25), (10, 10)]
 field_mean, field_stdev, lamb_cov, mkl = 1, 1, 0.1, 64
 
 # Instantiate Models for Different Resolutions
 solver_h1 = Model(resolutions[0], field_mean, field_stdev, mkl, lamb_cov)
 solver_h2 = Model(resolutions[1], field_mean, field_stdev, mkl, lamb_cov)
-solver_h3 = Model(resolutions[2], field_mean, field_stdev, 32, lamb_cov)
+solver_h3 = Model(resolutions[2], field_mean, field_stdev, mkl, lamb_cov)
+solver_h4 = Model(resolutions[3], field_mean, field_stdev, mkl, lamb_cov)
 
 # Set Up Transmissivity Fields Using Mesh Coordinates
 # Adjust the transmissivity based on h1 by retrieving mesh coordinates
-coords_h1, coords_h2, coords_h3 = (
-    np.array(solver.solver.mesh.coordinates()) for solver in (solver_h1, solver_h2, solver_h3)
+coords_h1, coords_h2, coords_h3, coords_h4 = (
+    np.array(solver.solver.mesh.coordinates()) for solver in (solver_h1, solver_h2, solver_h3, solver_h4)
 )
 
 # Define structured array data type for row-wise comparison
@@ -69,15 +73,19 @@ dtype = {
 structured_h1 = coords_h1.view(dtype)
 structured_h2 = coords_h2.view(dtype)
 structured_h3 = coords_h3.view(dtype)
+structured_h4 = coords_h4.view(dtype)
 
 # Create boolean vectors to identify matching rows between h1 and h2/h3 meshes
 bool_vector2 = np.in1d(structured_h1, structured_h2)
 bool_vector3 = np.in1d(structured_h1, structured_h3)
+bool_vector4 = np.in1d(structured_h1, structured_h4)
 
 solver_h2.random_process.eigenvalues = solver_h1.random_process.eigenvalues
 solver_h2.random_process.eigenvectors = solver_h1.random_process.eigenvectors[bool_vector2]
 solver_h3.random_process.eigenvalues = solver_h1.random_process.eigenvalues
 solver_h3.random_process.eigenvectors = solver_h1.random_process.eigenvectors[bool_vector3]
+solver_h4.random_process.eigenvalues = solver_h1.random_process.eigenvalues
+solver_h4.random_process.eigenvectors = solver_h1.random_process.eigenvectors[bool_vector4]
 
 # Define Points for Data Extraction
 x_data = y_data = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
@@ -93,6 +101,9 @@ def solver_h2_data(x):
 def solver_h3_data(x): 
     solver_h3.solve(x)
     return solver_h3.get_data(datapoints)
+def solver_h4_data(x): 
+    solver_h4.solve(x)
+    return solver_h4.get_data(datapoints)
 
 # Model Definitions for Different Cases
 if case == "2-step":
@@ -124,8 +135,9 @@ if case == "2-step":
 
 elif case == "1-step":
     # Load Models for Low- and Multi-fidelity Predictions
-    models_l = [load_model(f'models/single_fidelity/resolution_h1/samples_16000/model_fold_{i}.keras') for i in range(1, 5)]
-    model_mf = load_model('models/multi_fidelity/resolution_50-10/samples_16000/model_fold_4.keras')
+    models_1 = [load_model(f'models/multi_fidelity_100/input_10/samples_64000/model_fold_{i}.keras') for i in range(1, 5)]
+    models_2 = [load_model(f'models/multi_fidelity_100/input_10_25/samples_64000/model_fold_{i}.keras') for i in range(1, 5)]
+    models_3 = [load_model(f'models/multi_fidelity_100/input_10_25_50/samples_64000/model_fold_{i}.keras') for i in range(1, 5)]
 
     # Define TensorFlow Functions with JIT Compilation
     @tf.function(jit_compile=True)
@@ -134,17 +146,41 @@ elif case == "1-step":
         return tf.reduce_mean([mod(input_reshaped, training=False)[0] for mod in models_l], axis=0)
 
     @tf.function(jit_compile=True) 
-    def model_hf1step(input1, input2):
+    def model_mf1(input1, input2):
         input1    = tf.reshape(input1, (1, 64))
         input2    = tf.reshape(input2, (1, 25))
-        output_lf = tf.reshape(model_lf(tf.reshape(input1, (1, 64))), (1, 25))
-        return model_mf([input1,input2,output_lf], training=False)[0]
+        return models_1[0]([input1,input2], training=False)[0]
     
-    def model_HF(input):
-        coarse_data = tf.constant(solver_h3_data(input), dtype=tf.float32)
-        return model_hf1step(input, coarse_data).numpy().flatten()
+    @tf.function(jit_compile=True) 
+    def model_mf2(input1, input2):
+        input1    = tf.reshape(input1, (1, 64))
+        input2    = tf.reshape(input2, (1, 25))
+        input3    = tf.reshape(input2, (1, 25))
+        return models_2[0]([input1,input2,input3], training=False)[0]
+    
+    @tf.function(jit_compile=True) 
+    def model_mf3(input1, input2):
+        input1    = tf.reshape(input1, (1, 64))
+        input2    = tf.reshape(input2, (1, 25))
+        input3    = tf.reshape(input2, (1, 25))
+        input4    = tf.reshape(input2, (1, 25))
+        return models_3[0]([input1,input2,input3,input4], training=False)[0]
+    
+    def model_1(input):
+        coarse_data1 = tf.constant(solver_h4_data(input), dtype=tf.float32)
+        return model_mf1(input, coarse_data1).numpy().flatten()
+    
+    def model_2(input):
+        coarse_data1 = tf.constant(solver_h4_data(input), dtype=tf.float32)
+        coarse_data2 = tf.constant(solver_h3_data(input), dtype=tf.float32)
+        return model_mf2(input, coarse_data1, coarse_data2).numpy().flatten()
 
-    def model_LF(input): return model_lf(input).numpy().flatten()
+    def model_3(input):
+        coarse_data1 = tf.constant(solver_h4_data(input), dtype=tf.float32)
+        coarse_data2 = tf.constant(solver_h3_data(input), dtype=tf.float32)
+        coarse_data3 = tf.constant(solver_h3_data(input), dtype=tf.float32)
+        return model_mf3(input, coarse_data1, coarse_data2,coarse_data3).numpy().flatten()
+
 
 else:
     def model_HF(input): return solver_h1_data(input).flatten()
@@ -162,20 +198,23 @@ for i, sample in enumerate(random_samples, start=1):
 
     # Likelihood Distributions
     cov_likelihood = noise**2 * np.eye(25)
-    y_distribution_coarse = tda.AdaptiveGaussianLogLike(y_observed, cov_likelihood)
+    y_distribution_1 = tda.GaussianLogLike(y_observed, cov_likelihood*scaling1)
+    y_distribution_2 = tda.GaussianLogLike(y_observed, cov_likelihood*scaling2)
+    y_distribution_3 = tda.GaussianLogLike(y_observed, cov_likelihood*scaling3)
     y_distribution_fine = tda.GaussianLogLike(y_observed, cov_likelihood)
 
     # Initialize Posteriors
     my_posteriors = [
-        tda.Posterior(x_distribution, y_distribution_coarse, model_LF), 
-        tda.Posterior(x_distribution, y_distribution_fine, model_HF)
+        tda.Posterior(x_distribution, y_distribution_1, model_1), 
+        tda.Posterior(x_distribution, y_distribution_2, model_2), 
+        tda.Posterior(x_distribution, y_distribution_3,  model_3)
     ] if case != "FOM" else tda.Posterior(x_distribution, y_distribution_fine, model_HF)
 
     # Run MCMC Sampling
     start_time = timeit.default_timer()
     samples = tda.sample(my_posteriors, my_proposal, iterations=n_iter, n_chains=1,
-                         initial_parameters=np.zeros(64), subsampling_rate=sub_sampling,
-                         adaptive_error_model='state-independent')
+                         initial_parameters=np.zeros(64), subsampling_rate=sub_sampling)
+                        #  adaptive_error_model='state-independent')
     elapsed_time = timeit.default_timer() - start_time
 
     # Effective Sample Size (ESS)

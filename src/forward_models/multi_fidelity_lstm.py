@@ -76,6 +76,7 @@ class MultiFidelityLSTM(MultiFidelityNN):
         print(layers)
         print(fidelity)
         for layer in self.layers_config[layers][fidelity]:
+            print(layer)
             if layer["type"] == "Dense":
                 x = Dense(layer['units'], 
                         activation=layer['activation'], 
@@ -83,6 +84,6 @@ class MultiFidelityLSTM(MultiFidelityNN):
             elif layer["type"] == "LSTM":
                 x = LSTM(layer['units'], return_sequences=True,
                         activation=layer['activation'],
-                        kernel_regularizer=l2(self.coeff))(input_layer)
+                        kernel_regularizer=l2(self.coeff))(x)
             x = Dropout(rate=layer['rate'])(x)
         return x

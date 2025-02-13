@@ -223,7 +223,7 @@ def main():
     print(y_train.shape)
     
     # Train the model
-    # train_model(config, X_train, X_train_coarse1, y_train, X_test, X_test_coarse1, y_test, Sigma)
+    train_model(config, X_train, X_train_coarse1, y_train, X_test, X_test_coarse1, y_test, Sigma)
 
     # Evaluate the model
     model = evaluate_model(config, X_test, X_test_coarse1, U, Sigma, u_test_snapshots, scaler_Y)
@@ -235,9 +235,9 @@ def main():
     prediction = reconstruct(U,Sigma,predictions_inverse,num_modes=14)
     n = int(np.sqrt(prediction.shape[0]/2))
     print(prediction.shape)
-    plot_2d_system_prediction(u_test_snapshots, train_data['x'], train_data['y'], n, 101)
-    plot_2d_system_prediction(prediction, train_data['x'], train_data['y'], n, 101)
-    plot_2d_system_prediction(u_test_snapshots-prediction, train_data['x'], train_data['y'], n, 101)
+    # plot_2d_system_prediction(u_test_snapshots, train_data['x'], train_data['y'], n, 101,save_path='./exact')
+    # plot_2d_system_prediction(prediction, train_data['x'], train_data['y'], n, 101,save_path='./predicted')
+    # plot_2d_system_prediction(u_test_snapshots-prediction, train_data['x'], train_data['y'], n, 101,save_path='./difference')
 
 if __name__ == "__main__":
     main()
