@@ -12,7 +12,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src'))
 sys.path.extend([os.path.join(BASE_DIR, 'forward_models'), os.path.join(BASE_DIR, 'utils')])
 
 # Import necessary modules
-from single_fidelity_nn import SingleFidelityNN
+from single_fidelity_lstm import SingleFidelityLSTM
 from pod_utils import reshape_to_pod_2d_system_snapshots, project, reshape_to_lstm, reconstruct
 from data_utils import load_hdf5, prepare_lstm_dataset
 from plot_utils import plot_2d_system_prediction
@@ -69,27 +69,17 @@ def load_and_process_data(config, num_modes=10):
     # Split into features and targets
     X_train, y_train = X_train_prep[:, :, :3], X_train_prep[:, :, 3:]
     X_test, y_test = X_test_prep[:, :, :3], X_test_prep[:, :, 3:]
+    
+    scaler_X = StandardScaler()
+    scaler_Y = StandardScaler()
 
-    # Reshape for Dense Neural Network: (num_samples * time_steps, num_features)
-    X_train, y_train = reshape_for_dense_nn(X_train, y_train)
-    X_test, y_test = reshape_for_dense_nn(X_test, y_test)
+    X_train = scaler_X.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
+    X_test = scaler_X.transform(X_test.reshape(-1, X_test.shape[-1])).reshape(X_test.shape)
 
-    # **Apply feature scaling**
-    X_scaler = StandardScaler().fit(X_train)
-    y_scaler = StandardScaler().fit(y_train)
+    y_train = scaler_Y.fit_transform(y_train.reshape(-1, y_train.shape[-1])).reshape(y_train.shape)
+    y_test = scaler_Y.transform(y_test.reshape(-1, y_test.shape[-1])).reshape(y_test.shape)
 
-    X_train = X_scaler.transform(X_train)
-    X_test = X_scaler.transform(X_test)
-
-    # **Weight output coefficients by singular values**
-    y_train = y_scaler.transform(y_train) 
-    y_test = y_scaler.transform(y_test)
-
-    # Log final dataset shapes
-    logging.info(f"Training data shape: X_train: {X_train.shape}, y_train: {y_train.shape}")
-    logging.info(f"Test data shape: X_test: {X_test.shape}, y_test: {y_test.shape}")
-
-    return X_train, y_train, X_test, y_test, U, Sigma, u_test_snapshots, X_scaler, y_scaler
+    return X_train, y_train, X_test, y_test, U, Sigma, u_test_snapshots
 
 
 def reshape_for_dense_nn(X, y):
@@ -111,24 +101,24 @@ def train_model(config, X_train, y_train, X_test, y_test, Sigma):
     """
     logging.info("Initializing SingleFidelityNN model.")
     
-    sfnn_model = SingleFidelityNN(
-        input_shape=(X_train.shape[1],),
+    sfnn_model = SingleFidelityLSTM(
+        input_shape=(X_train.shape[1], X_train.shape[2]),  # (time_steps, features)
         coeff=config["coeff"],
         layers_config=config["layers_config"],
         train_config=config["train_config"],
-        output_units=y_train.shape[1],
+        output_units=y_train.shape[2],  # Ensure output is 3D
         output_activation=config["output_activation"]
     )
 
     logging.info("Building and training the SingleFidelityNN model.")
     sfnn_model.build_model()
-    # sfnn_model.train(X_train, y_train, X_test, y_test)
+    sfnn_model.train(X_train, y_train, X_test, y_test)
 
     logging.info("Model training completed successfully!")
 
 
 
-def evaluate_model(config, X_test, U, Sigma, u_test_snapshots, y_scaler):
+def evaluate_model(config, X_test, U, Sigma, u_test_snapshots):
     """Loads the trained model and evaluates reconstruction performance."""
     destination_folder = config["train_config"]["model_save_path"]
     model_path = os.path.join(destination_folder, 'model.keras')
@@ -137,7 +127,7 @@ def evaluate_model(config, X_test, U, Sigma, u_test_snapshots, y_scaler):
     model = tf.keras.models.load_model(model_path)
 
     logging.info("Performing POD-based reconstruction...")
-    reconstructed, error = reconstruct(U, Sigma, y_scaler.inverse_transform(model.predict(X_test)), num_modes=10, original_snapshots=u_test_snapshots)
+    reconstructed, error = reconstruct(U, Sigma, model.predict(X_test), num_modes=10, original_snapshots=u_test_snapshots)
 
     logging.info(f"RMSE Test Error: {error:.6f}")
 
@@ -155,15 +145,16 @@ def main():
     shutil.copy(config_filepath, destination_folder)
 
     # Prepare datasets
-    X_train, y_train, X_test, y_test, U, Sigma, u_test_snapshots, _, y_scaler = load_and_process_data(config, num_modes=10)
+    X_train, y_train, X_test, y_test, U, Sigma, u_test_snapshots, = load_and_process_data(config, num_modes=10)
     
+    print(X_train.shape)
     # Train the model
     train_model(config, X_train, y_train, X_test, y_test, Sigma)
 
     # Evaluate the model
-    model = evaluate_model(config, X_test, U, Sigma, u_test_snapshots, y_scaler)
+    model = evaluate_model(config, X_test, U, Sigma, u_test_snapshots)
     
-    prediction = y_scaler.inverse_transform(model.predict(X_test))
+    prediction = model.predict(X_test)
     prediction = reconstruct(U,Sigma,prediction,num_modes=10)
     n = int(np.sqrt(prediction.shape[0]/2))
     print(prediction.shape)
