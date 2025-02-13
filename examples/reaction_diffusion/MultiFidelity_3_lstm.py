@@ -42,6 +42,9 @@ def load_and_process_data(config, num_modes=10):
     logging.info("Reshaping datasets into 2D POD snapshots.")
     u_train_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'], train_data['v'])
     u_test_snapshots = reshape_to_pod_2d_system_snapshots(test_data['u'], test_data['v'])
+    
+    u_train_snapshots_coarse1 = reshape_to_pod_2d_system_snapshots(train_coarse_data_1['u'], train_coarse_data_1['v'])
+    u_test_snapshots_coarse1 = reshape_to_pod_2d_system_snapshots(test_coarse_data_1['u'], test_coarse_data_1['v'])
 
     # Project data onto POD modes
     logging.info("Projecting data onto POD basis with %d modes.", num_modes)
