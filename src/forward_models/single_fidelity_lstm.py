@@ -2,14 +2,13 @@ import os
 import numpy as np
 from typing import List, Dict, Tuple, Any, Callable
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Input, Dense, Dropout
+from tensorflow.keras.layers import Input, Dense, Dropout, LSTM
 from tensorflow.keras.regularizers import l2
 from sklearn.model_selection import KFold
 from tensorflow.keras.callbacks import LearningRateScheduler, Callback
 from tensorflow.keras.optimizers import Adam
 
 import sys
-
 
 class PrintEveryNEpoch(Callback):
     def __init__(self, n, total_epochs):
@@ -64,8 +63,8 @@ def make_scheduler(coeff: float, mode: str = 'linear', step=10) -> Callable[[int
     else:
         raise ValueError(f"Unsupported mode: {mode}. Currently, only 'linear' is supported.")
 
-
-class SingleFidelityNN:
+from single_fidelity_nn import *
+class SingleFidelityLSTM(SingleFidelityNN):
     """
     A class representing a single-fidelity neural network model.
 
@@ -99,16 +98,14 @@ class SingleFidelityNN:
         :param output_units: Number of units in the output layer.
         :param output_activation: Activation function for the output layer.
         """
-        self.input_shape = input_shape
-        self.coeff = coeff
-        self.layers_config = layers_config
-        self.train_config = train_config
-        self.output_units = output_units
-        self.output_activation = output_activation
-        self.model = None
-        self.lr_scheduler = make_scheduler(self.train_config['scheduler_coeff'], self.train_config.get('scheduler_mode', 'linear'),self.train_config.get('step', 10))
-        self.rate = rate
-        self.custom_loss = custom_loss
+        super().__init__(input_shape,
+                       coeff,
+                       layers_config,
+                       train_config, 
+                       output_units, 
+                       output_activation, 
+                       rate, 
+                       custom_loss)
 
     def build_model(self) -> Sequential:
         """
@@ -116,19 +113,23 @@ class SingleFidelityNN:
 
         :return: A compiled Keras Sequential model.
         """
-        model = Sequential([
-                        Input(self.input_shape),
-                        Dense(self.layers_config[0]['units'], 
-                              activation=self.layers_config[0]['activation'], 
-                              kernel_regularizer=l2(self.coeff)) 
-                        ])
-        model.add(Dropout(rate=self.layers_config[0]['rate']))
-
+        
+        model = Sequential()
+        
+        first_layer = self.layers_config[0]
+        
+        model.add(Input(shape=self.input_shape))
+        
         # Add hidden layers
-        for layer in self.layers_config[1:]:
-            model.add(Dense(layer['units'], 
-                            activation=layer['activation'], 
-                            kernel_regularizer=l2(self.coeff)))
+        for layer in self.layers_config:
+            if layer["type"] == "Dense":
+                model.add(Dense(layer['units'], 
+                        activation=layer['activation'], 
+                        kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform'))
+            elif layer["type"] == "LSTM":
+                model.add(LSTM(layer['units'], return_sequences=layer['return_seq'],
+                        activation=layer['activation'],
+                        kernel_regularizer=l2(self.coeff)))
             model.add(Dropout(rate=layer['rate']))
             
         # Add output layer
