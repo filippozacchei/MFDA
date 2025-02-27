@@ -16,7 +16,7 @@ np.random.seed(12)
 # Simulation Parameters
 RESOLUTIONS = [(100, 100), (50, 50), (25,25), (10, 10), (20, 20)]
 FIELD_MEAN = 1
-FIELD_STD_DEV = 10
+FIELD_STD_DEV = 1
 LAMB_COV = 0.1
 MKL_VALUES = [64, 64, 64, 64, 64]
 NUM_DATAPOINTS = 64
@@ -80,7 +80,7 @@ def time_solver_execution(solver: Model, input_data: np.ndarray, datapoints: np.
     the minimum execution time over the specified number of repetitions.
     """
     print(f"Timing execution for solver: {solver}...\n")
-    return np.min(repeat(lambda: run_solver(solver, input_data, datapoints), number=1, repeat=repetitions))
+    return np.mean(repeat(lambda: run_solver(solver, input_data, datapoints), number=1, repeat=repetitions))
 
 
 def print_results(execution_times: dict, speedups: dict) -> None:

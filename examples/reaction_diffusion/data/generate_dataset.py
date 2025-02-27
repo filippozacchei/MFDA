@@ -5,17 +5,17 @@ from scipy.integrate import ode
 import matplotlib.pyplot as plt
 import logging
 
-np.random.seed(41) # 41 train, 42 test
+np.random.seed(40) # 41 train, 42 test (40,45)
 
 # Parameters
-num_samples = 50               # Number of LHS samples
+num_samples = 1000               # Number of LHS samples
 d1_range = [0.01, 0.1]
 beta_range = [0.5, 1.5]
 L = 20                         # Domain size
-n = 128                         # Grid size
+n = 16                         # Grid size
 N = n * n                      # Total grid points
-t = np.arange(0, 50.05, 0.05)  # Time vector
-output_name = 'reaction_diffusion_training_h1.h5'
+t = np.arange(0, 50.05, 0.5)  # Time vector
+output_name = 'reaction_diffusion_training_h4_long.h5'
 
 # Generate LHS samples
 lhs_samples = np.random.rand(num_samples, 2)

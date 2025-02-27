@@ -42,8 +42,13 @@ def plot_2d_system_pod_modes(U, x, y, n, num_modes=15):
         plt.tight_layout()
         plt.show()
         
-def plot_2d_system_prediction(U, x, y, n, n_steps=1000, save_path=None):
-    """Visualizes the first few POD modes for U and V side by side"""
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.gif"):
+    """Visualizes the first few POD modes for U and V and saves as a GIF (no ffmpeg required)"""
+    
     grid_points = n * n
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -53,9 +58,8 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=1000, save_path=None):
     c2 = ax2.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=-1, vmax=1)
 
     # Add colorbars
-    cb1 = plt.colorbar(c1, ax=ax1)
-    cb2 = plt.colorbar(c2, ax=ax2)
-
+    plt.colorbar(c1, ax=ax1)
+    plt.colorbar(c2, ax=ax2)
 
     ax1.set_title("POD Mode 1 (U)")
     ax1.set_xlabel('x')
@@ -79,9 +83,13 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=1000, save_path=None):
         return c1, c2
 
     # Create animation
-    ani = animation.FuncAnimation(fig, update, frames=n_steps, interval=100, blit=False)
-    ani.save(save_path, writer='ffmpeg', fps=30)
+    ani = animation.FuncAnimation(fig, update, frames=n_steps, interval=10, blit=False)
+
+    # Save animation as GIF (no ffmpeg required)
+    ani.save(save_path, writer='pillow', fps=50)  
     print(f"Animation saved as {save_path}")
+
+    plt.show()
 
 def plot_variance(Sigma):
     """Plots cumulative variance captured by singular values."""

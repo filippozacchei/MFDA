@@ -5,9 +5,10 @@ import logging
 import tensorflow as tf
 # Add the 'models' directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_models/'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/utils/'))
 
 from single_fidelity_nn import SingleFidelityNN
-from utils import *
+from data_utils import *
 
 # Set up logging for progress output
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

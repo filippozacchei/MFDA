@@ -9,7 +9,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/forward_model
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../src/utils/'))
 
 from multi_fidelity_nn import MultiFidelityNN
-from load_data import *
+from data_utils import *
 
 # Set up logging for progress output
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

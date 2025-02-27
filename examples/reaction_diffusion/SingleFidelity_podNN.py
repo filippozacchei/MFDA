@@ -167,8 +167,9 @@ def main():
     prediction = reconstruct(U,Sigma,prediction,num_modes=14)
     n = int(np.sqrt(prediction.shape[0]/2))
     print(prediction.shape)
-    plot_2d_system_prediction(u_test_snapshots, train_data['x'], train_data['y'], n, 101)
-    plot_2d_system_prediction(prediction, train_data['x'], train_data['y'], n, 101)
+    plot_2d_system_prediction(u_test_snapshots, train_data['x'], train_data['y'], n, 101,save_path="sol_sf.gif")
+    plot_2d_system_prediction(prediction, train_data['x'], train_data['y'], n, 101,save_path="pred_sf.gif")
+    plot_2d_system_prediction(u_test_snapshots-prediction, train_data['x'], train_data['y'], n, 101,save_path="err_sf.gif")
 
 
 if __name__ == "__main__":

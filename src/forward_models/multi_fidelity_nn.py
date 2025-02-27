@@ -216,12 +216,21 @@ class MultiFidelityNN(SingleFidelityNN):
         # Compile the model
         self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
         
+        # print("X_Train:", X_train_fidelities)
+        # print("X_Test:", X_test_fidelities)
+        # print("Y_train:", y_train)
+        # print("Y_test:", y_test)
+        
+        # print("X_Train:", [i.shape for i in X_train_fidelities])
+        # print("X_Test:", [i.shape for i in X_test_fidelities])
+        # print("Y_train:", y_train.shape)
+        # print("Y_test:", y_test.shape)
         # Train the model
         self.model.fit(X_train_fidelities, y_train,
                         epochs=self.train_config['epochs'],
                         batch_size=self.train_config['batch_size'],
                         validation_data=(X_test_fidelities, y_test),
-                        validation_freq = 1,
+                        validation_freq = 10,
                         callbacks = [LearningRateScheduler(self.lr_scheduler), PrintEveryNEpoch(10, self.train_config['epochs'])],
                         verbose=0)
 
