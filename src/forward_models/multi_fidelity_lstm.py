@@ -1,11 +1,12 @@
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import LSTM, Dense, Add, Input, Concatenate, Dropout, BatchNormalization
+from tensorflow.keras.layers import LSTM, Dense, Add, Input, Concatenate, Dropout, Multiply, BatchNormalization
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import LearningRateScheduler, Callback
 import numpy as np
 import os
 from sklearn.model_selection import KFold
 from multi_fidelity_nn import *
+import tensorflow as tf
 
 class MultiFidelityLSTM(MultiFidelityNN):
     def __init__(self,
@@ -46,8 +47,27 @@ class MultiFidelityLSTM(MultiFidelityNN):
             merged_output = Add()(fidelity_layers)
         elif self.merge_mode == 'concat':
             merged_output = Concatenate()(fidelity_layers)
+        elif self.merge_mode == 'multiply':
+            merged_output = Multiply()(fidelity_layers)
+        elif self.merge_mode == 'hyper':
+            if len(fidelity_layers)>2:
+                merged_output = Concatenate()(fidelity_layers[1:])
+            else :
+                merged_output = fidelity_layers[1]
+            generated_weights = fidelity_layers[0]
+            merged_shape = tf.shape(merged_output)
+            weight_units = self.layers_config["output_layers"]["output"][0]["units"]
+            generated_weights = tf.reshape(
+                generated_weights,
+                (-1, merged_shape[1], merged_shape[2], weight_units)
+            )
+            einsum_layer = tf.keras.layers.Lambda(
+                lambda tensors: tf.einsum('bij,bijk->bik', tensors[0], tensors[1]), 
+                name="einsum_hyper_merge"
+            )
+            merged_output = einsum_layer([merged_output, generated_weights])
         else:
-            raise ValueError(f"Unsupported merge_mode: {self.merge_mode}. Use 'add' or 'concat'.")
+            raise ValueError(f"Unsupported merge_mode: {self.merge_mode}.")
         
         merged_output = self._build_hidden_layers(merged_output, "output", "output_layers")
         
@@ -84,6 +104,6 @@ class MultiFidelityLSTM(MultiFidelityNN):
             elif layer["type"] == "LSTM":
                 x = LSTM(layer['units'], return_sequences=True,
                         activation=layer['activation'],
-                        kernel_regularizer=l2(self.coeff))(x)
+                        kernel_regularizer=l2(self.coeff),unroll=True)(x)
             x = Dropout(rate=layer['rate'])(x)
         return x

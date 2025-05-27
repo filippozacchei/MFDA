@@ -4,6 +4,7 @@ from sklearn.model_selection import KFold
 from tensorflow.keras.callbacks import LearningRateScheduler
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import ReduceLROnPlateau
+import tensorflow as tf
 
 
 
@@ -103,6 +104,25 @@ class MultiFidelityNN(SingleFidelityNN):
             merged_output = Add()(fidelity_layers)
         elif self.merge_mode == 'concat':
             merged_output = Concatenate()(fidelity_layers)
+        elif self.merge_mode == 'multiply':
+            merged_output = Multiply()(fidelity_layers)
+        elif self.merge_mode == 'hyper':
+            if len(fidelity_layers)>2:
+                merged_output = Concatenate()(fidelity_layers[1:])
+            else :
+                merged_output = fidelity_layers[1]
+            generated_weights = fidelity_layers[0]
+            merged_shape = tf.shape(merged_output)
+            weight_units = self.layers_config["output_layers"][0]["units"]
+
+            # Reshape generated weights for proper matrix multiplication
+            generated_weights = tf.reshape(
+                generated_weights,
+                (-1, merged_shape[-1], weight_units)  # Ensure compatible shape for tf.matmul
+            )
+
+            # Apply matmul operation to merge outputs and weights
+            merged_output = tf.matmul(merged_output, generated_weights)
         else:
             raise ValueError(f"Unsupported merge_mode: {self.merge_mode}. Use 'add' or 'concat'.")
         

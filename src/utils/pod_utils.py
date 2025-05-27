@@ -10,6 +10,15 @@ def reshape_to_pod_2d_snapshots(data):
     grid_points = n * n
     return data[:num_samples, :].reshape(num_samples * time_steps, grid_points).T
 
+def reshape_to_pod_2d_system_snapshots_1(data1):
+    """Optimized reshaping of dataset into a 2D snapshot matrix."""
+    num_samples, time_steps, n, _ = data1.shape
+    num_snapshots = num_samples * time_steps
+    grid_points = n * n
+    reshaped_data1 = data1.reshape(num_snapshots, grid_points).T  # Shape (grid_points, num_snapshots)
+    return reshaped_data1
+
+
 def reshape_to_pod_2d_system_snapshots(data1, data2):
     """Optimized reshaping of dataset into a 2D snapshot matrix."""
     num_samples, time_steps, n, _ = data1.shape
@@ -57,6 +66,12 @@ def reconstruct(U, sigma, time_coefficients, num_modes, original_snapshots=None)
         error_rmse = np.mean(np.linalg.norm(original_snapshots - reconstructed,axis=0,ord=1)/np.linalg.norm(original_snapshots,axis=0,ord=1))
         return reconstructed, error_rmse 
     return reconstructed
+
+def reconstruct_eff(U,coeff,num_modes):
+    pred = U[:,:num_modes] @ (coeff[:,:num_modes]).T  
+    n_cr = pred.shape[0]//2
+    n_gr = int(np.sqrt(n_cr))
+    return pred[:n_cr,:].reshape(n_gr,n_gr,1001), pred[n_cr:,:].reshape(n_gr,n_gr,1001)
 
 def project(U, Sigma, snapshots,num_modes):
     return (U[:,:num_modes].T@snapshots/Sigma[:num_modes,None]).T

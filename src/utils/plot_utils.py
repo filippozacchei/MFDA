@@ -54,8 +54,8 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
     ax1, ax2 = axes
-    c1 = ax1.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=-1, vmax=1)
-    c2 = ax2.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=-1, vmax=1)
+    c1 = ax1.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=-3, vmax=-1)
+    c2 = ax2.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=-3, vmax=-1)
 
     # Add colorbars
     plt.colorbar(c1, ax=ax1)
@@ -83,7 +83,7 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.
         return c1, c2
 
     # Create animation
-    ani = animation.FuncAnimation(fig, update, frames=n_steps, interval=10, blit=False)
+    ani = animation.FuncAnimation(fig, update, frames=range(0,n_steps,100), interval=10, blit=False)
 
     # Save animation as GIF (no ffmpeg required)
     ani.save(save_path, writer='pillow', fps=50)  

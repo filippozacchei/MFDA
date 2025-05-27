@@ -29,23 +29,28 @@ import tinyDA as tda
 from model import Model
 # from utils import *
 
-case = "2-step"  # Options: "2-step"/"1-step"/"FOM"
+case = "MFDA2"  # "MFDA2", "MLDA", "MLDA2", "MFDA1, "FOM"
 
 # MCMC Parameters
 noise        = 0.001
-scaling      = 0.05
+noise_Str    = str(noise).replace('.', '_')
+scaling      = 0.001
+scale        = str(scaling).replace('.', '_')
 scaling1     = 1
 scaling2     = 1
 scaling3     = 1
-n_iter       = 11000
+n_iter       = 26000
 burnin       = 1000
 thin         = 1
-sub_sampling = [5,5]
+sub          = 1
+
+sub_sampling = [5,sub]
+n_train_samples = 64000
 
 # Initialize Parameters
-n_samples = 25
-np.random.seed(123)
-random_samples = np.random.randint(0, 160, n_samples)
+n_samples = 0
+np.random.seed(31321)
+random_samples = np.random.randint(0, 10000, n_samples)
 n_eig = 64
 X_values = np.loadtxt('data/data/X_test_h1_100_01.csv', delimiter=',')
 y_values = np.loadtxt('data/data/y_test_h1_100_01.csv', delimiter=',')
@@ -53,8 +58,6 @@ y_values = np.loadtxt('data/data/y_test_h1_100_01.csv', delimiter=',')
 # Resolution Parameters for Different Solvers
 resolutions = [(100, 100), (50, 50), (25, 25), (10, 10)]
 field_mean, field_stdev, lamb_cov, mkl = 1, 1, 0.1, 64 
-
-    ### Chapter one> how I overcame mz fear of codin
 
 # Instantiate Models for Different Resolutions
 solver_h1 = Model(resolutions[0], field_mean, field_stdev, mkl, lamb_cov)
@@ -106,13 +109,13 @@ def model_LF2(input): return solver_h3_data(input).flatten()
 def model_LF3(input): return solver_h4_data(input).flatten()
 
 # Model Definitions for Different Cases
-if case == "2-step":
+if case == "MFDA2":
     # Load Models for Low- and Multi-fidelity Predictions
         # Load Models for Low- and Multi-fidelity Predictions
-    model_nn = load_model(f'models/single_fidelity_100/resolution_10/samples_64000/model_fold_1.keras')
-    models_1 = load_model(f'models/multi_fidelity_100_2step/input_10/samples_64000/model_fold_1.keras')
-    models_2 = load_model(f'models/multi_fidelity_100_2step/input_10_25/samples_64000/model_fold_1.keras')
-    models_3 = load_model(f'models/multi_fidelity_100_2step/input_10_25_50/samples_64000/model_fold_1.keras')
+    model_nn = load_model(f'models/single_fidelity_100/resolution_10/samples_{n_train_samples}/model_fold_1.keras')
+    models_1 = load_model(f'models/multi_fidelity_100_2step/input_10/samples_{n_train_samples}/model_fold_1.keras')
+    models_2 = load_model(f'models/multi_fidelity_100_2step/input_10_25/samples_{n_train_samples}/model_fold_1.keras')
+    models_3 = load_model(f'models/multi_fidelity_100_2step/input_10_25_50/samples_{n_train_samples}/model_fold_1.keras')
     
     @tf.function(jit_compile=True) 
     def model_mf1(input1, input2):
@@ -160,26 +163,52 @@ if case == "2-step":
     
     def model_HF(input): return solver_h1_data(input).flatten()
     
+    # Generate input data
     NUM_DATAPOINTS = 64
-    input_data = np.random.normal(size=(NUM_DATAPOINTS,1))
-    input1 =  input_data 
+    input_data = np.random.normal(size=(NUM_DATAPOINTS, 1))
+    input1 = input_data
+
     input2 = solver_h4_data(input1)
     input3 = solver_h3_data(input1)
     input4 = solver_h2_data(input1)
-    execution_times = np.mean(repeat(lambda:  model_mf1(input1, input2,), number=1, repeat=500))
-    print(execution_times)
+    
+    execution_times = {
+        "LF1": np.mean(repeat(lambda: solver_h4_data(input1), number=1, repeat=100)),
+        "LF2": np.mean(repeat(lambda: solver_h3_data(input1), number=1, repeat=100)),
+        "LF3": np.mean(repeat(lambda: solver_h2_data(input1), number=1, repeat=100)),
+        "HF": np.mean(repeat(lambda: solver_h1_data(input1), number=1, repeat=100)),
+    }
 
-elif case == "1-step":
+    for key, time in execution_times.items():
+        print(f"Execution time {key}: {time}")
+
+    execution_times = {
+        "MF3": np.mean(repeat(lambda: model_mf3(input1, input2, input3, input4), number=1, repeat=100)),
+        "MF2": np.mean(repeat(lambda: model_mf2(input1, input2, input3), number=1, repeat=100)),
+        "MF1": np.mean(repeat(lambda: model_mf1(input1, input2), number=1, repeat=100)),
+    }
+
+    for key, time in execution_times.items():
+        print(f"Execution time {key}: {time}")
+
+    true_output = solver_h1_data(input1)
+    errors = {
+        "MF3": np.mean(np.sqrt((true_output - model_3(input1))**2)),
+        "MF2": np.mean(np.sqrt((true_output - model_2(input1))**2)),
+        "MF1": np.mean(np.sqrt((true_output - model_1(input1))**2)),
+        "LF3": np.mean(np.sqrt((true_output - solver_h2_data(input1))**2)),
+        "LF2": np.mean(np.sqrt((true_output - solver_h3_data(input1))**2)),
+        "LF1": np.mean(np.sqrt((true_output - solver_h4_data(input1))**2)),
+    }
+
+    for key, err in errors.items():
+        print(f"Error {key}: {err}")
+
+elif case == "MFDA1":
     # Load Models for Low- and Multi-fidelity Predictions
-    models_1 = load_model(f'models/multi_fidelity_100/input_10/samples_64000/model_fold_1.keras')
-    models_2 = load_model(f'models/multi_fidelity_100/input_10_25/samples_64000/model_fold_1.keras')
-    models_3 = load_model(f'models/multi_fidelity_100/input_10_25_50/samples_64000/model_fold_1.keras')
-
-    # # Define TensorFlow Functions with JIT Compilation
-    # @tf.function(jit_compile=True)
-    # def model_lf(input):
-    #     input_reshaped = tf.reshape(input, (1, 64))
-    #     return tf.reduce_mean([mod(input_reshaped, training=False)[0] for mod in models_l], axis=0)
+    models_1 = load_model(f'models/multi_fidelity_100/input_10/samples_{n_train_samples}/model_fold_1.keras')
+    models_2 = load_model(f'models/multi_fidelity_100/input_10_25/samples_{n_train_samples}/model_fold_1.keras')
+    models_3 = load_model(f'models/multi_fidelity_100/input_10_25_50/samples_{n_train_samples}/model_fold_1.keras')
 
     @tf.function(jit_compile=True) 
     def model_mf1(input1, input2):
@@ -223,24 +252,49 @@ elif case == "1-step":
     
     def model_HF(input): return solver_h1_data(input).flatten()
     
+    # Generate input data
     NUM_DATAPOINTS = 64
-    input_data = np.random.normal(size=(NUM_DATAPOINTS,1))
-    input1 =  input_data 
+    input_data = np.random.normal(size=(NUM_DATAPOINTS, 1))
+    input1 = input_data
+
     input2 = solver_h4_data(input1)
     input3 = solver_h3_data(input1)
     input4 = solver_h2_data(input1)
-    execution_times = np.mean(repeat(lambda:  model_mf3(input1, input2, input3, input4), number=1, repeat=500))
-    print(execution_times)
-    execution_times = np.mean(repeat(lambda:  model_mf2(input1, input2, input3), number=1, repeat=500))
-    print(execution_times)
-    execution_times = np.mean(repeat(lambda:  model_mf1(input1, input2,), number=1, repeat=500))
-    print(execution_times)
+
+    execution_times = {
+        "MF3": np.mean(repeat(lambda: model_mf3(input1, input2, input3, input4), number=1, repeat=1)),
+        "MF2": np.mean(repeat(lambda: model_mf2(input1, input2, input3), number=1, repeat=1)),
+        "MF1": np.mean(repeat(lambda: model_mf1(input1, input2), number=1, repeat=1)),
+    }
+
+    for key, time in execution_times.items():
+        print(f"Execution time {key}: {time}")
+
+    true_output = solver_h1_data(input1)
+    errors = {
+        "MF3": np.mean(np.sqrt((true_output - model_3(input1))**2)),
+        "MF2": np.mean(np.sqrt((true_output - model_2(input1))**2)),
+        "MF1": np.mean(np.sqrt((true_output - model_1(input1))**2)),
+        "LF3": np.mean(np.sqrt((true_output - solver_h2_data(input1))**2)),
+        "LF2": np.mean(np.sqrt((true_output - solver_h3_data(input1))**2)),
+        "LF1": np.mean(np.sqrt((true_output - solver_h4_data(input1))**2)),
+    }
+
+    for key, err in errors.items():
+        print(f"Error {key}: {err}")
     
-elif case == "MLDA":
+elif case == "MLDA1":
     
     model_1 = model_LF2
     model_2 = model_LF1
     model_3 = model_HF
+    
+elif case == "MLDA2":
+    
+    model_1 = model_LF3
+    model_2 = model_LF2
+    model_3 = model_LF1
+
 
 # Prior and Proposal Distributions
 x_distribution = stats.multivariate_normal(mean=np.zeros(64), cov=np.eye(64))
@@ -259,7 +313,7 @@ for i, sample in enumerate(random_samples, start=1):
         print(f"\nMSE coarse simulation HF test:  {np.sqrt(np.mean((model_HF(x_true) - y_values[sample])**2)):.4e}")
         
     def ls(x):
-        return (y_true-model_HF(x))**2
+        return (y_true-model_HF(x))
 
     res = least_squares(ls,np.zeros_like((x_true)), jac='3-point')
     covariance = np.linalg.pinv(res.jac.T @ res.jac)
@@ -272,7 +326,8 @@ for i, sample in enumerate(random_samples, start=1):
     y_distribution_2 = tda.AdaptiveGaussianLogLike(y_observed, cov_likelihood*scaling2)
     y_distribution_3 = tda.AdaptiveGaussianLogLike(y_observed, cov_likelihood*scaling3)
     y_distribution_fine = tda.GaussianLogLike(y_observed, cov_likelihood)
-    my_proposal = tda.GaussianRandomWalk(C=covariance,scaling=1e-1, adaptive=True, gamma=1.1, period=10)
+    my_proposal = tda.GaussianRandomWalk(C=covariance,scaling=scaling, adaptive=True, gamma=1.1, period=100)
+    
     # Initialize Posteriors
     my_posteriors = [
         tda.Posterior(x_distribution, y_distribution_1, model_1), 
@@ -301,10 +356,12 @@ for i, sample in enumerate(random_samples, start=1):
     err=(np.mean(np.sqrt((x_true-val)**2)))
     ERR.append(err)
     print(f'Time: {elapsed_time:.2f}, ESS: {mean_ess:.2f}, Time/ESS: {elapsed_time / mean_ess:.2f}, Err: {err:.3f} ({i}/{n_samples})')
+    
 
+    
 # Save Results
 output_folder = './data/recorded_values'
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_ratio_001.npy'), Time_ESS)
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_times_001.npy'), Times)
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_err_001.npy'), ERR)
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_ESS_001.npy'), ESS)
+np.save(os.path.join(output_folder, f'MDA_MF_{case}_noise_{noise_Str}_ratio_sub{sub}_scaling{scale}.npy'), Time_ESS)
+np.save(os.path.join(output_folder, f'MDA_MF_{case}_noise_{noise_Str}_times_sub{sub}_scaling{scale}.npy'), Times)
+np.save(os.path.join(output_folder, f'MDA_MF_{case}_noise {noise_Str}_err_sub{sub}_scaling{scale}.npy'), ERR)
+np.save(os.path.join(output_folder, f'MDA_MF_{case}_noise_{noise_Str}_ESS_sub{sub}_scaling{scale}.npy'), ESS)

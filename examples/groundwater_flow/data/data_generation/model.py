@@ -89,3 +89,38 @@ class Model:
                                        levels = contour_levels_solution, 
                                        cmap = 'plasma');  
         fig.colorbar(solution, ax=axes[1])
+        
+    def plot2(self, limits = [0,0], transform_field = False):
+        
+        # This method plots both the random firld and the solution.
+        
+        # First, contruct a random field, given the field parameters.
+        if transform_field:
+            random_field = np.exp(self.field_mean + self.field_stdev*self.random_process.random_field)
+        else:
+            random_field = self.field_mean + self.field_stdev*self.random_process.random_field
+        
+        # Set contour levels.
+        if any(limits):
+            contour_levels_field = np.linspace(limits[0], limits[1], 100)
+        else:
+            contour_levels_field = np.linspace(min(random_field), max(random_field), 100)
+        
+        # Then extract the solution from every node in the solver.
+        solution = self.get_solution()
+            
+        # Set the contour levels.
+        contour_levels_solution = np.linspace(min(solution), max(solution), 100)
+        
+        # Plot field and solution.
+        fig, axes = plt.subplots(nrows=1, ncols=1, figsize = (12, 9))
+        
+        axes[0].set_title('Transmissivity Field', fontdict = {'fontsize': 24})
+        axes[0].tick_params(labelsize=16)
+        field = axes[0].tricontourf(self.x, 
+                                    self.y, 
+                                    random_field, 
+                                    levels = contour_levels_field, 
+                                    cmap = 'jet');  
+
+
