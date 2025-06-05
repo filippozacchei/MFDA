@@ -1,17 +1,10 @@
 # Standard Library Imports
 import os
-
-os.environ['OPENBLAS_NUM_THREADS'] = '4'
-os.environ['OMP_NUM_THREADS'] = '4'
+import time
 
 import sys
 import timeit
 from scipy.optimize import least_squares
-
-# Optimize performance by setting environment variables
-os.environ['OPENBLAS_NUM_THREADS'] = '1'
-os.environ['OMP_NUM_THREADS'] = '1'
-os.environ['KERAS_BACKEND'] = 'tensorflow'
 from timeit import repeat
 
 # Third-party Library Imports
@@ -39,12 +32,12 @@ from model import Model_DR
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../src'))
 sys.path.extend([os.path.join(BASE_DIR, 'forward_models'), os.path.join(BASE_DIR, 'utils')])
 from data_utils import load_hdf5, prepare_lstm_dataset
-from pod_utils import reshape_to_pod_2d_system_snapshots, project, reshape_to_lstm, reconstruct, reconstruct_eff
+from pod_utils import reshape_to_pod_2d_system_snapshots, project, reshape_to_lstm, reconstruct, reconstruct_eff, reconstruct_eff1
 
 # Import necessary modules
 from multi_fidelity_lstm import MultiFidelityLSTM
 
-case = "1-step"  # Options: "2-step"/"1-step"/"FOM"
+case = "FOM"  # Options: "2-step"/"1-step"/"FOM"
 print(case)
 
 # MCMC Parameters
@@ -57,35 +50,38 @@ n_iter       = 2000
 burnin       = 0
 thin         = 1
 num_modes    = 40
-sub_sampling = 1
+sub_sampling = [5,2]
 
 def load_configuration(config_path):
     """Load JSON configuration file."""
     with open(config_path, 'r') as f:
         return json.load(f)
 
+
 def temporal_interpolation_splines2(u_data_coarse, time_steps_coarse, time_steps_fine):
-    """ Perform temporal interpolation on u_data_coarse using cubic splines
-    to match the time dimensionality of the high-fidelity data. """
-    num_samples, _, n, n = u_data_coarse.shape
-    # Create a normalized time grid for coarse and fine data
+    """
+    Perform temporal interpolation using cubic splines on u_data_coarse
+    to match the time resolution of high-fidelity data.
+    More efficient by reducing nested loops via reshaping.
+    """
+    num_samples, _, n, _ = u_data_coarse.shape
+
+    # Normalize time grids
     time_coarse = np.linspace(0, 1, time_steps_coarse)
     time_fine = np.linspace(0, 1, time_steps_fine)
-    
-    # Allocate memory for interpolated data
-    u_data_coarse_interpolated = np.zeros((num_samples, time_steps_fine, n, n))
-    
-    # Perform interpolation for each sample and spatial location
+
+    # Reshape: merge spatial dimensions for vectorized processing
+    reshaped_input = u_data_coarse.reshape(num_samples, time_steps_coarse, -1)  # shape: (samples, time, n*n)
+    reshaped_output = np.zeros((num_samples, time_steps_fine, reshaped_input.shape[-1]))
+
     for sample_idx in range(num_samples):
-        for i in range(n):
-            for j in range(n):
-                # Extract the time series for the current spatial location
-                time_series = u_data_coarse[sample_idx, :, i, j]
-                # Create a cubic spline interpolator
-                spline = interp1d(time_coarse, time_series, kind='cubic', fill_value="extrapolate")
-                # Interpolate to the fine time grid
-                u_data_coarse_interpolated[sample_idx, :, i, j] = spline(time_fine)
-    
+        # Create interpolator for all spatial points at once
+        interpolator = interp1d(time_coarse, reshaped_input[sample_idx], axis=0, kind='cubic', fill_value="extrapolate")
+        reshaped_output[sample_idx] = interpolator(time_fine)
+        
+
+    # Reshape back to original spatial structure
+    u_data_coarse_interpolated = reshaped_output.reshape(num_samples, time_steps_fine, n, n)
     return u_data_coarse_interpolated
 
 def load_and_process_data(config, num_modes=40):
@@ -132,7 +128,7 @@ def load_and_process_data(config, num_modes=40):
 
 # Initialize Parameters
 n_samples = 25
-np.random.seed(223)
+np.random.seed(123)
 config_filepath = 'config/config_MultiFidelity_3.json'
 config = load_configuration(config_filepath)
 scaler_X = load_and_process_data(config, num_modes=num_modes)
@@ -185,7 +181,6 @@ def solver_data(solver, x, lag=1):
     # Use the updated get_data method to retrieve data in one call
     return solver.get_data(datapoints, lag)
 
-# @jit(nopython=True)
 def get_data(sol_u, sol_v, lag=1):
     data = np.stack([sol_u[i_indices, j_indices, ::lag], sol_v[i_indices, j_indices, ::lag]], axis=1)
     return data
@@ -227,12 +222,10 @@ class CustomUniform:
     def rvs(self):
         return np.random.uniform(self.lower_bound, self.upper_bound)
 
-# @jit(nopython=True)
 def interpolate_and_reshape(data, time_steps_coarse, time_steps_fine, grid_points):
     interpolated_data = temporal_interpolation_splines(data, time_steps_coarse, time_steps_fine)
     return interpolated_data.reshape(time_steps_fine, grid_points).T
 
-# @jit(nopython=True)
 def expand_parameters(input, time_steps_fine):
     input = input.flatten()[np.newaxis, np.newaxis, :]  # Ensure input is 3D
     return np.repeat(input, time_steps_fine, axis=1)  # Repeat across the time dimension
@@ -249,27 +242,17 @@ if case == "1-step":
     pod_basis_coarse2 = load_hdf5(config["pod_basis_coarse2"])
     pod_basis_coarse3 = load_hdf5(config["pod_basis_coarse3"])
     
-    # # Define TensorFlow Functions with JIT Compilation
-    # @tf.function(jit_compile=True)
-    # def model_lf(input):
-    #     input_reshaped = tf.reshape(input, (1, 64))
-    #     return tf.reduce_mean([mod(input_reshaped, training=False)[0] for mod in models_l], axis=0)
-
-    #@tf.function(jit_compile=True)
+    @tf.function(jit_compile=True)
     def model_mf1(input1, input2):
         return models_1([input1,input2], training=False)[0]
     
-    #@tf.function(jit_compile=True)
+    @tf.function(jit_compile=True)
     def model_mf2(input1, input2, input3):
         return models_2([input1,input2,input3], training=False)[0]
     
-    #@tf.function(jit_compile=True)
+    @tf.function(jit_compile=True)
     def model_mf3(input1, input2, input3, input4):
         return models_3([input1,input2,input3,input4], training=False)[0]
-    
-    # def model_1(input):
-    #     coarse_data1 = tf.constant(solver_h4_data(input), dtype=tf.float32)
-    #     return model_mf1(input, coarse_data1).numpy().flatten()
     
     grid_points_h4 = 16*16
     grid_points_h3 = 32*32
@@ -298,7 +281,6 @@ if case == "1-step":
         
         return coarse_data
 
-    # @jit(nopython=True)
     def prepare_input(input_data, time_steps_fine):
         param_expanded = expand_parameters(input_data, time_steps_fine)
         X = np.concatenate([param_expanded, time_expanded], axis=2)
@@ -309,7 +291,7 @@ if case == "1-step":
         X = prepare_input(input_data, time_steps_fine)
         X = scaler_X.transform(X.reshape(-1, X.shape[-1])).reshape(X.shape)
         predictions = model_mf1(X, coarse_data * Sigma[:num_modes]).numpy()
-        sol_u, sol_v = reconstruct_eff(U,predictions,40)
+        sol_u, sol_v = reconstruct_eff1(U,predictions,40)
         sol = get_data(sol_u, sol_v, lag=20).flatten()
         return sol
 
@@ -319,7 +301,7 @@ if case == "1-step":
         X = prepare_input(input_data, time_steps_fine)
         X = scaler_X.transform(X.reshape(-1, X.shape[-1])).reshape(X.shape)
         predictions = model_mf2(X, coarse_data2 * Sigma[:num_modes], coarse_data1 * Sigma[:num_modes]).numpy()
-        sol_u, sol_v = reconstruct_eff(U,predictions,40)
+        sol_u, sol_v = reconstruct_eff1(U,predictions,40)
         sol = get_data(sol_u, sol_v, lag=20).flatten()
         return sol
 
@@ -330,62 +312,27 @@ if case == "1-step":
         X = prepare_input(input_data, time_steps_fine)
         X = scaler_X.transform(X.reshape(-1, X.shape[-1])).reshape(X.shape)
         predictions = model_mf3(X, coarse_data3 * Sigma[:num_modes], coarse_data2 * Sigma[:num_modes], coarse_data1 * Sigma[:num_modes]).numpy()
-        sol_u, sol_v = reconstruct_eff(U,predictions,40)
+        sol_u, sol_v = reconstruct_eff1(U,predictions,40)
         sol = get_data(sol_u, sol_v, lag=20).flatten()
         return sol
         
-    NUM_DATAPOINTS = 2
     input_data = np.array([0.05,0.5])
     
-    from timeit import default_timer as timer
-
-    # Measure execution time for model_1
-    start_time = timer()
     model_1_output = model_1(input_data)
-    execution_time = timer() - start_time
-    print("Model MF1: ", execution_time, flush=True)
-
-    # Measure execution time for model_2
-    start_time = timer()
     model_2_output = model_2(input_data)
-    execution_time = timer() - start_time
-    print("Model MF2: ", execution_time, flush=True)
-
-    # Measure execution time for model_3
-    # start_time = timer()
-    # model_3_output = model_3(input_data)
-    # execution_time = timer() - start_time
-    # print("Model MF3: ", execution_time, flush=True)
-
-    # Measure execution time for model_LF3
-    # start_time = timer()
-    # model_LF3_output = model_LF3(input_data)
-    # execution_time = timer() - start_time
-    # print("Model LF1: ", execution_time, flush=True)
-
-    # # Measure execution time for model_LF2
-    # start_time = timer()
-    # model_LF2_output = model_LF2(input_data)
-    # execution_time = timer() - start_time
-    # print("Model LF2: ", execution_time, flush=True)
-
-    # # Measure execution time for model_LF1
-    # start_time = timer()
-    # model_LF1_output = model_LF1(input_data)
-    # execution_time = timer() - start_time
-    # print("Model LF3: ", execution_time, flush=True)
-
-    # # Measure execution time for model_HF
-    # start_time = timer()
-    # model_HF_output = model_HF(input_data)
-    # execution_time = timer() - start_time
-    # print("Model HF: ", execution_time, flush=True)
+    model_3_output = model_3(input_data)
     
-elif case == "MLDA":
+elif case == "MLDA1":
     
     model_1 = model_LF2_lag
     model_2 = model_LF1_lag
     model_3 = model_HF_lag
+
+elif case == "MLDA2":
+    
+    model_1 = model_LF3_lag
+    model_2 = model_LF2_lag
+    model_3 = model_LF1_lag
     
 
 x_distribution = CustomUniform([0.01,0.5],[0.1,1.5])
@@ -403,7 +350,6 @@ y_lf1 = solver_h1.get_data(datapoints, lag=20).flatten()
 y_lf2 = solver_h1.get_data(datapoints, lag=20).flatten()
 y_lf3 = solver_h1.get_data(datapoints, lag=20).flatten()
 
-
 y_observed = y_hf + np.random.normal(scale=noise, size=y_hf.shape[0])
 y_obs1 = y_lf1 + np.random.normal(scale=noise, size=y_lf1.shape[0])
 y_obs2 = y_lf2 + np.random.normal(scale=noise, size=y_lf2.shape[0])
@@ -412,32 +358,25 @@ y_obs3 = y_lf3 + np.random.normal(scale=noise, size=y_lf3.shape[0])
 def ls(x):
     return (y_observed-model_HF_lag(x))
 
-res = least_squares(ls,[0.08,1.25], jac='3-point', verbose=2, bounds=([0.01,0.5],[0.1,1.5]))
+x_initial = x_true - np.array([0.01,0.1])
+x_initial[0] = x_initial[0] if x_initial[0] > 0.01 else x_true[0]
+x_initial[0] = x_initial[1] if x_initial[1] > 0.01 else x_true[1]
+
+res = least_squares(ls,x_true - np.array([0.01,0.1]), jac='3-point', verbose=2, bounds=([0.01,0.5],[0.1,1.5]))
 covariancep = np.linalg.inv(res.jac.T @ res.jac)
 covariancep *= 1/np.max(np.abs(covariancep))
 print("Covariance: ", covariancep)
 print("Params: ", res.x)
-covariance = np.array([[0.01,0.0],[0.0,0.1]])
-# covariancep = np.array([[1.0,0.77],[0.77,0.73]])
-print(covariance)
-# print(covariancep)
 
-# Likelihood Distributions
-n = y_true.shape[0]
+n = y_observed.shape[0]
 cov_likelihood = np.diag(np.full(n, noise**2,dtype=np.float32))
 y_distribution_fine = tda.GaussianLogLike(y_observed, cov_likelihood)
 
-
-my_proposal = tda.GaussianRandomWalk(C=covariancep,scaling=1e-6, adaptive=True, gamma=1.1, period=10)
-x_distribution = CustomUniform([0.01,0.5],[0.5,1.5])
+my_proposal = tda.GaussianRandomWalk(C=covariancep,scaling=1e-3, adaptive=True, gamma=1.1, period=10)
+x_distribution = CustomUniform([0.01,0.5],[0.1,1.5])
 
 if case == "1-step":
-    # print("Err MF1: ",np.mean(np.abs(y_true-model_1(x_true))), flush=True)
-    # print("Err MF2: ",np.mean(np.abs(y_true-model_2(x_true))), flush=True)
-    # # print("Err MF3: ",np.mean(np.abs(y_true-model_3(x_true))), flush=True)
-    # print("Err LF1: ",np.mean(np.abs(y_lf3-model_LF3(x_true))), flush=True)
-    # print("Err LF2: ",np.mean(np.abs(y_lf2-model_LF2(x_true))), flush=True)
-    # print("Err LF3: ",np.mean(np.abs(y_lf1-model_LF1(x_true))), flush=True)
+
     y_distribution_1 = tda.GaussianLogLike(y_observed+model_1(res.x)-model_3(res.x), cov_likelihood*scaling1)
     y_distribution_2 = tda.GaussianLogLike(y_observed+model_2(res.x)-model_3(res.x), cov_likelihood*scaling2)
     y_distribution_3 = tda.GaussianLogLike(y_observed, cov_likelihood*scaling3)
@@ -445,39 +384,50 @@ if case == "1-step":
     my_posteriors = [ 
         tda.Posterior(x_distribution, y_distribution_1, model_1),
         tda.Posterior(x_distribution, y_distribution_2, model_2),
-        tda.Posterior(x_distribution, y_distribution_2, model_3)
+        tda.Posterior(x_distribution, y_distribution_3, model_3)
     ]
 
-    level = 1
+    level = 2
     
-elif case == "MLDA":
+elif case == "MLDA1":
+    cov_lf1 = noise**2 * np.eye(y_lf2.shape[0])
+    cov_lf2 = noise**2 * np.eye(y_lf3.shape[0])
+    cov_lf3 = noise**2 * np.eye(y_hf.shape[0])
+    y_distribution_1 = tda.GaussianLogLike(y_lf1 + model_1(res.x) - model_3(res.x), cov_lf1*scaling1)
+    y_distribution_2 = tda.GaussianLogLike(y_lf2 + model_2(res.x) - model_3(res.x), cov_lf2*scaling2)
+    y_distribution_3 = tda.GaussianLogLike(y_lf3, cov_lf3*scaling2)
+
+    my_posteriors = [
+        tda.Posterior(x_distribution, y_distribution_1, model_1), 
+        tda.Posterior(x_distribution, y_distribution_2, model_2),
+        tda.Posterior(x_distribution, y_distribution_3, model_3)
+    ] 
+
+    level = 2 
+
+elif case == "MLDA2":
     cov_lf1 = noise**2 * np.eye(y_lf1.shape[0])
     cov_lf2 = noise**2 * np.eye(y_lf2.shape[0])
     cov_lf3 = noise**2 * np.eye(y_lf3.shape[0])
-    y_distribution_1 = tda.GaussianLogLike(y_lf1, cov_lf1*scaling1)
-    y_distribution_2 = tda.GaussianLogLike(y_lf2, cov_lf2*scaling2)
+    y_distribution_1 = tda.GaussianLogLike(y_lf1 + model_1(res.x) - model_3(res.x), cov_lf1*scaling1)
+    y_distribution_2 = tda.GaussianLogLike(y_lf2 + model_2(res.x) - model_3(res.x), cov_lf2*scaling2)
+    y_distribution_3 = tda.GaussianLogLike(y_lf3, cov_lf3*scaling2)
 
     my_posteriors = [
-        tda.Posterior(x_distribution, y_distribution_2, model_1), 
-        tda.Posterior(x_distribution, y_distribution_1, model_2),
-        tda.Posterior(x_distribution, y_distribution_1, model_3)
+        tda.Posterior(x_distribution, y_distribution_1, model_1), 
+        tda.Posterior(x_distribution, y_distribution_2, model_2),
+        tda.Posterior(x_distribution, y_distribution_3, model_3)
     ] 
 
-    level = 1 
+    level = 2 
 
 else:
-    my_posteriors= tda.Posterior(x_distribution, y_distribution_fine, model_HF)
+    my_posteriors= tda.Posterior(x_distribution, y_distribution_fine, model_HF_lag)
     level = 2
 
 start_time = timeit.default_timer()
 samples = tda.sample(my_posteriors, my_proposal, iterations=n_iter, n_chains=1,
                     initial_parameters=x_true, subchain_length=sub_sampling,store_coarse_chain=False)
 elapsed_time = timeit.default_timer() - start_time
-
-idata = tda.to_inference_data(samples, level='fine').sel(draw=slice(burnin, None, thin), groups="posterior")
-ess = az.ess(idata)
-print(ess)
-mean_ess = np.mean([ess.data_vars[f'x{j}'].values for j in range(2)])
-print(mean_ess)
-az.plot_trace(idata)
-plt.savefig("trace_2levels_"+case)
+idata = tda.to_inference_data(samples, level=level).sel(draw=slice(burnin, None, thin), groups="posterior")
+idata.to_netcdf("samples_2levels_" + case + ".nc")

@@ -3,6 +3,7 @@ import numpy as np
 import logging
 from sklearn.utils.extmath import randomized_svd as r_svd
 from scipy.linalg import svd
+from numba import jit 
 
 def reshape_to_pod_2d_snapshots(data):
     """Reshapes the dataset into a 2D snapshot matrix."""
@@ -67,11 +68,17 @@ def reconstruct(U, sigma, time_coefficients, num_modes, original_snapshots=None)
         return reconstructed, error_rmse 
     return reconstructed
 
-def reconstruct_eff(U,coeff,num_modes):
-    pred = U[:,:num_modes] @ (coeff[:,:num_modes]).T  
-    n_cr = pred.shape[0]//2
+def reconstruct_eff(U,sigma,coeff,num_modes,nt=1001,n_sample=200):
+    pred = U[:,:num_modes] @ (coeff[:,:num_modes]*sigma[:num_modes]).T  
+    n_cr = U.shape[0]//2
     n_gr = int(np.sqrt(n_cr))
-    return pred[:n_cr,:].reshape(n_gr,n_gr,1001), pred[n_cr:,:].reshape(n_gr,n_gr,1001)
+    return pred[:n_cr,:].reshape(n_sample,n_gr,n_gr,nt), pred[n_cr:,:].reshape(n_sample,n_gr,n_gr,nt)
+
+def reconstruct_eff1(U,coeff,num_modes,nt=1001):
+    pred = U[:,:num_modes] @ (coeff[:,:num_modes]).T
+    n_cr = U.shape[0]//2
+    n_gr = int(np.sqrt(n_cr))
+    return pred[:n_cr,:].reshape(n_gr,n_gr,nt), pred[n_cr:,:].reshape(n_gr,n_gr,nt)
 
 def project(U, Sigma, snapshots,num_modes):
     return (U[:,:num_modes].T@snapshots/Sigma[:num_modes,None]).T

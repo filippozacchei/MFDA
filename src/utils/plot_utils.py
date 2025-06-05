@@ -46,7 +46,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.gif"):
+def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.gif", vmin=-1,vmax=1):
     """Visualizes the first few POD modes for U and V and saves as a GIF (no ffmpeg required)"""
     
     grid_points = n * n
@@ -54,8 +54,8 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
     ax1, ax2 = axes
-    c1 = ax1.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=-3, vmax=-1)
-    c2 = ax2.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=-3, vmax=-1)
+    c1 = ax1.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=vmin, vmax=vmax)
+    c2 = ax2.pcolormesh(x, y, np.zeros((n, n)), shading='auto', cmap='jet', vmin=vmin, vmax=vmax)
 
     # Add colorbars
     plt.colorbar(c1, ax=ax1)

@@ -317,7 +317,7 @@ def main():
     
     # Backup configuration
     destination_folder = config["train_config"]["model_save_path"]
-    shutil.copy(config_filepath, destination_folder)
+    # shutil.copy(config_filepath, destination_folder)
 
     # Prepare datasets
     X_train, X_train_coarse1, X_train_coarse2,X_train_coarse3, y_train, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, y_test, U, Sigma, u_test_snapshots, scaler_Y = load_and_process_data(config, num_modes=40)
@@ -337,9 +337,9 @@ def main():
     n = int(np.sqrt(prediction.shape[0]//2))
     print(prediction.shape)
     nt=2000
-    plot_2d_system_prediction(u_test_snapshots[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/exact_mf3.gif')
-    plot_2d_system_prediction(prediction[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/predicted_mf3.gif')
-    plot_2d_system_prediction(np.log(np.abs(u_test_snapshots[:,nt:]-prediction[:,nt:])), train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/difference_mf3.gif')
+    #plot_2d_system_prediction(u_test_snapshots[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/exact_mf3.gif')
+    #plot_2d_system_prediction(prediction[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/predicted_mf3.gif')
+    plot_2d_system_prediction(np.abs(u_test_snapshots[:,nt:]-prediction[:,nt:]), train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/difference_mf3.gif',vmin=0.0,vmax=1.0)
 
 if __name__ == "__main__":
     main()

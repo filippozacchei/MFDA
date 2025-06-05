@@ -76,11 +76,11 @@ def downsample_2d_system_pod_modes(U_fine, n_fine, n_coarse):
 ###############################################################################
 # 2. Main POD pipeline
 ###############################################################################
-resolution = 'h1'
+resolution = 'h4'
 
 def get_output_name(resolution=''):
     """Generates the output filename for POD basis."""
-    return f'pod_basis_system_{resolution}.h5'
+    return f'pod_basis_system_{resolution}_2step.h5'
 
 def get_data_filenames(data_path, resolution=''):
     """Generates training and testing dataset filenames based on resolution."""
