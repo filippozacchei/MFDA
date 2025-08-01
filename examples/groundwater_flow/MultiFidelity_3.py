@@ -103,7 +103,7 @@ def main():
 
     # # Train the model using K-Fold cross-validation
     logging.info("Starting K-Fold training")
-    mfnn_model.kfold_train([X_train_param,X_train_coarse1], y_train)
+    mfnn_model.kfold_train([X_train_param,X_train_coarse1], y_train, [X_test_param,X_test_coarse1],y_test)
     
     # plot_results(X_test, y_test, mfnn_model.model)
     

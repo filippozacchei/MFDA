@@ -3,6 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse import diags, lil_matrix
 from scipy.sparse.linalg import spsolve
+import numba as nb
+
+
+@nb.njit
+def compute_conductivity(field_mean, field_stdev, random_field):
+    return np.exp(field_mean + field_stdev * random_field)
 
 class GwFlowSolver:
     def __init__(self, resolution, field_mean, field_stdev):
@@ -82,13 +88,14 @@ class GwFlowSolver:
         plt.figure(figsize = (10,10))
         plot(self.mesh)
         plt.show()
-        
+
+        return np.exp(field_mean + field_stdev * random_field) 
     def set_conductivity(self, random_field = False):
         
         # Set the conductivity
         if np.any(random_field):
             # Make it exponential
-            self.conductivity = np.exp(self.field_mean + self.field_stdev*random_field)
+            self.conductivity = compute_conductivity(self.field_mean, self.field_stdev, random_field)
 
         # If no field is given, just set the flow-field to the mean.
         else:
@@ -107,17 +114,23 @@ class GwFlowSolver:
         # Define the variational problem and solver
         problem = LinearVariationalProblem(a, L, self.h, self.bcs)
         solver = LinearVariationalSolver(problem)
+        resolution_to_tol = {
+        5: 1e-6,
+        10: 1e-8,
+        25: 1e-11,
+        50: 1e-14,
+        100:1e-14}
 
         # Set solver parameters
         prm = solver.parameters
         prm['linear_solver'] = 'gmres'
-        prm['preconditioner'] = 'ilu'
-        prm['krylov_solver']['absolute_tolerance'] = 1e-14
-        prm['krylov_solver']['relative_tolerance'] = 1e-14
-        prm['krylov_solver']['maximum_iterations'] = 1000000
+        prm['krylov_solver']['absolute_tolerance']=resolution_to_tol[self.nx]
+        prm['krylov_solver']['relative_tolerance']=resolution_to_tol[self.nx]
 
         # Solve the variational problem
         solver.solve()
+
+        #h = Function(V)
         # solve(a == L, self.h, self.bcs, 
         #       solver_parameters={"linear_solver": "lu"},
         #       form_compiler_parameters={"optimize": True})

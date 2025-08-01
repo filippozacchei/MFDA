@@ -6,6 +6,11 @@ import matplotlib.pyplot as plt
 from scipy.linalg import eigh
 from scipy.sparse.linalg import eigsh 
 from scipy.spatial import distance_matrix
+import numba as nb
+
+@nb.njit
+def generate_field(eigenvectors, eigenvalues, parameters):
+    return eigenvectors @ (np.sqrt(eigenvalues) * parameters)
 
 
 class RandomProcess:
@@ -49,7 +54,20 @@ class RandomProcess:
         order = np.flip(np.argsort(eigvals))
         self.eigenvalues = eigvals[order]
         self.eigenvectors = eigvecs[:,order]
-      
+
+    
+    def generate(self, parameters=None):
+        if parameters is None:
+            self.parameters = np.random.normal(size=self.mkl)
+        else:
+            self.parameters = np.array(parameters).flatten()
+
+        # Numba-accelerated multiplication
+        self.random_field = generate_field(
+            self.eigenvectors, self.eigenvalues, self.parameters
+        )
+
+    '''
     def generate(self, parameters = None):
         
         # Generate a random field, see
@@ -66,7 +84,7 @@ class RandomProcess:
         self.random_field = np.linalg.multi_dot((self.eigenvectors, 
                                                  np.sqrt(np.diag(self.eigenvalues)), 
                                                  self.parameters))
-        
+    ''' 
 
     def plot(self, lognormal = False):
         
