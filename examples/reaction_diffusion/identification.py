@@ -69,16 +69,21 @@ def temporal_interpolation_splines2(u_data_coarse, time_steps_coarse, time_steps
     to match the time resolution of high-fidelity data.
     More efficient by reducing nested loops via reshaping.
     """
-    num_samples, _, n, n = u_data_coarse.shape
+    num_samples, _, n, _ = u_data_coarse.shape
+    time_coarse = np.linspace(0, 1, time_steps_coarse)
+    time_fine = np.linspace(0, 1, time_steps_fine)
+    # Reshape: merge spatial dimensions for vectorized processing
+    reshaped_input = u_data_coarse.reshape(num_samples, time_steps_coarse, -1)  # shape: (samples, time, n*n)
+    reshaped_output = np.zeros((num_samples, time_steps_fine, reshaped_input.shape[-1]))
+    for sample_idx in range(num_samples):
+        # Create interpolator for all spatial points at once
+        interpolator = interp1d(time_coarse, reshaped_input[sample_idx], axis=0, kind='cubic', fill_value="extrapolate")
+        reshaped_output[sample_idx] = interpolator(time_fine)
+        
 
-    # Compute index mapping from fine time to coarse time
-    coarse_idx = np.floor(
-        np.linspace(0, time_steps_coarse - 1, time_steps_fine)
-    ).astype(int)
-
-    u_data_interpolated = u_data_coarse[:, coarse_idx, :, :]
-
-    return u_data_interpolated
+    # Reshape back to original spatial structure
+    u_data_coarse_interpolated = reshaped_output.reshape(num_samples, time_steps_fine, n, n)
+    return u_data_coarse_interpolated
 
 def load_and_process_data(config, num_modes=25):
     """
