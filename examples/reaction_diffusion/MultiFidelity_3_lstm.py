@@ -16,7 +16,7 @@ sys.path.extend([os.path.join(BASE_DIR, 'forward_models'), os.path.join(BASE_DIR
 from multi_fidelity_lstm import MultiFidelityLSTM
 from pod_utils import reshape_to_pod_2d_system_snapshots, project, reshape_to_lstm, reconstruct
 from data_utils import load_hdf5, prepare_lstm_dataset
-from plot_utils import plot_2d_system_prediction
+from plot_utils import plot_final_U_snapshot
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -33,10 +33,10 @@ def temporal_interpolation_splines(u_data_coarse, time_steps_coarse, time_steps_
     # Create a normalized time grid for coarse and fine data
     time_coarse = np.linspace(0, 1, time_steps_coarse)
     time_fine = np.linspace(0, 1, time_steps_fine)
-    
+
     # Allocate memory for interpolated data
     u_data_coarse_interpolated = np.zeros((num_samples, time_steps_fine, n, n))
-    
+
     # Perform interpolation for each sample and spatial location
     for sample_idx in range(num_samples):
         for i in range(n):
@@ -47,11 +47,10 @@ def temporal_interpolation_splines(u_data_coarse, time_steps_coarse, time_steps_
                 spline = interp1d(time_coarse, time_series, kind='cubic', fill_value="extrapolate")
                 # Interpolate to the fine time grid
                 u_data_coarse_interpolated[sample_idx, :, i, j] = spline(time_fine)
-    
+
     return u_data_coarse_interpolated
 
-
-def load_and_process_data(config, num_modes=40):
+def load_and_process_data(config, num_modes=25):
     """
     Load datasets, apply POD projection, and prepare LSTM-ready data.
     :param config: Configuration dictionary.
@@ -90,7 +89,7 @@ def load_and_process_data(config, num_modes=40):
     test_data_coarse1['v'] = temporal_interpolation_splines(
         test_data_coarse1['v'], test_data_coarse1['v'].shape[1], test_data['v'].shape[1]
     )
-
+    
     train_data_coarse2['u'] = temporal_interpolation_splines(
         train_data_coarse2['u'], train_data_coarse2['u'].shape[1], train_data['u'].shape[1]
     )
@@ -138,23 +137,6 @@ def load_and_process_data(config, num_modes=40):
         
     u_train_snapshots_coarse3 = reshape_to_pod_2d_system_snapshots(train_data_coarse3['u'], train_data_coarse3['v'])
     u_test_snapshots_coarse3 = reshape_to_pod_2d_system_snapshots(test_data_coarse3['u'], test_data_coarse3['v'])
-
-    # u_train_snapshots = reshape_to_pod_2d_system_snapshots_1(train_data['u'])
-    # u_test_snapshots = reshape_to_pod_2d_system_snapshots_1(test_data['u'])
-    
-    # u_train_snapshots_coarse1 = reshape_to_pod_2d_system_snapshots_1(train_data_coarse1['u'])
-    # u_test_snapshots_coarse1 = reshape_to_pod_2d_system_snapshots_1(test_data_coarse1['u'])
-    
-    # u_train_snapshots_coarse2 = reshape_to_pod_2d_system_snapshots_1(train_data_coarse2['u'])
-    # u_test_snapshots_coarse2 = reshape_to_pod_2d_system_snapshots_1(test_data_coarse2['u'])
-        
-    # u_train_snapshots_coarse3 = reshape_to_pod_2d_system_snapshots_1(train_data_coarse3['u'])
-    # u_test_snapshots_coarse3 = reshape_to_pod_2d_system_snapshots_1(test_data_coarse3['u'])
-    
-    # plot_2d_system_prediction(u_test_snapshots, train_data['x'], train_data['y'], 128, 1001, save_path='./exact_h1.gif')
-    # plot_2d_system_prediction(u_test_snapshots_coarse1, train_data_coarse1['x'], train_data_coarse1['y'], 64, 1001, save_path='./exact_h2.gif')
-    # plot_2d_system_prediction(u_test_snapshots_coarse2, train_data_coarse2['x'], train_data_coarse2['y'], 32, 1001, save_path='./exact_h3.gif')
-    # plot_2d_system_prediction(u_test_snapshots_coarse3, train_data_coarse3['x'], train_data_coarse3['y'], 16, 1001, save_path='./exact_h4.gif')
 
     # Project data onto POD modes
     logging.info("Projecting data onto POD basis with %d modes.", num_modes)
@@ -232,19 +214,19 @@ def load_and_process_data(config, num_modes=40):
 
     X_train = scaler_X.fit_transform(X_train.reshape(-1, X_train.shape[-1])).reshape(X_train.shape)
     X_test = scaler_X.transform(X_test.reshape(-1, X_test.shape[-1])).reshape(X_test.shape)
+    '''
+    y_train = scaler_Y.fit_transform(y_train.reshape(-1, y_train.shape[-1])).reshape(y_train.shape)
+    y_test = scaler_Y.transform(y_test.reshape(-1, y_test.shape[-1])).reshape(y_test.shape)
     
-    # y_train = scaler_Y.fit_transform(y_train.reshape(-1, y_train.shape[-1])).reshape(y_train.shape)
-    # y_test = scaler_Y.transform(y_test.reshape(-1, y_test.shape[-1])).reshape(y_test.shape)
+    X_train_coarse1 = scaler_Y.transform(X_train_coarse1.reshape(-1, X_train_coarse1.shape[-1])).reshape(X_train_coarse1.shape)
+    X_test_coarse1 = scaler_Y.transform(X_test_coarse1.reshape(-1, X_test_coarse1.shape[-1])).reshape(X_test_coarse1.shape)
     
-    # X_train_coarse1 = scaler_Y.transform(X_train_coarse1.reshape(-1, X_train_coarse1.shape[-1])).reshape(X_train_coarse1.shape)
-    # X_test_coarse1 = scaler_Y.transform(X_test_coarse1.reshape(-1, X_test_coarse1.shape[-1])).reshape(X_test_coarse1.shape)
+    X_train_coarse2 = scaler_Y.transform(X_train_coarse2.reshape(-1, X_train_coarse2.shape[-1])).reshape(X_train_coarse2.shape)
+    X_test_coarse2 = scaler_Y.transform(X_test_coarse2.reshape(-1, X_test_coarse2.shape[-1])).reshape(X_test_coarse2.shape)
     
-    # X_train_coarse2 = scaler_Y.transform(X_train_coarse2.reshape(-1, X_train_coarse2.shape[-1])).reshape(X_train_coarse2.shape)
-    # X_test_coarse2 = scaler_Y.transform(X_test_coarse2.reshape(-1, X_test_coarse2.shape[-1])).reshape(X_test_coarse2.shape)
-    
-    # X_train_coarse3 = scaler_Y.transform(X_train_coarse3.reshape(-1, X_train_coarse3.shape[-1])).reshape(X_train_coarse3.shape)
-    # X_test_coarse3 = scaler_Y.transform(X_test_coarse3.reshape(-1, X_test_coarse3.shape[-1])).reshape(X_test_coarse3.shape)
-   
+    X_train_coarse3 = scaler_Y.transform(X_train_coarse3.reshape(-1, X_train_coarse3.shape[-1])).reshape(X_train_coarse3.shape)
+    X_test_coarse3 = scaler_Y.transform(X_test_coarse3.reshape(-1, X_test_coarse3.shape[-1])).reshape(X_test_coarse3.shape)
+    '''
     
     return X_train, X_train_coarse1, X_train_coarse2, X_train_coarse3, y_train, X_test, X_test_coarse1, X_test_coarse2, X_test_coarse3, y_test, U, Sigma, u_test_snapshots, scaler_Y
 
@@ -289,7 +271,7 @@ def train_model(config, X_train, X_train_coarse1, X_train_coarse2,X_train_coarse
 
 
 
-def evaluate_model(config, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, U, Sigma, u_test_snapshots, num_modes, scaler_Y):
+def evaluate_model(config,y_test, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, U, Sigma, u_test_snapshots, num_modes, scaler_Y):
     """Loads the trained model and evaluates reconstruction performance."""
     destination_folder = config["train_config"]["model_save_path"]
     model_path = os.path.join(destination_folder, 'model.keras')
@@ -299,12 +281,12 @@ def evaluate_model(config, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3
 
     logging.info("Performing POD-based reconstruction...")
     predictions = model.predict((X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3))/Sigma[:num_modes]  # Shape: (batch_size, time_steps, num_modes)
+    predictions = y_test/Sigma[:num_modes]  # Shape: (batch_size, time_steps, num_modes)
     # predictions = scaler_Y.inverse_transform(predictions.reshape(-1, predictions.shape[-1])).reshape(predictions.shape)
     predictions_reshaped = predictions.reshape(-1, predictions.shape[-1])  # Shape: (batch_size * time_steps, num_modes)
     # predictions_inverse = scaler_Y.inverse_transform(predictions_reshaped)
 
-    reconstructed, error = reconstruct(U, Sigma, predictions_reshaped, num_modes=40, original_snapshots=u_test_snapshots)
-
+    reconstructed, error = reconstruct(U, Sigma, predictions_reshaped, num_modes=25, original_snapshots=u_test_snapshots)
     logging.info(f"RMSE Test Error: {error:.6f}")
 
     return model
@@ -320,26 +302,26 @@ def main():
     # shutil.copy(config_filepath, destination_folder)
 
     # Prepare datasets
-    X_train, X_train_coarse1, X_train_coarse2,X_train_coarse3, y_train, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, y_test, U, Sigma, u_test_snapshots, scaler_Y = load_and_process_data(config, num_modes=40)
-    
+    X_train, X_train_coarse1, X_train_coarse2,X_train_coarse3, y_train, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, y_test, U, Sigma, u_test_snapshots, scaler_Y = load_and_process_data(config, num_modes=25)
+
     # Train the model
-    # train_model(config, X_train, X_train_coarse1, X_train_coarse2,X_train_coarse3, y_train, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, y_test, Sigma)
+    train_model(config, X_train, X_train_coarse1, X_train_coarse2,X_train_coarse3, y_train, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, y_test, Sigma)
 
     # Evaluate the model
-    model = evaluate_model(config, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, U, Sigma, u_test_snapshots, 40, scaler_Y)
+    model = evaluate_model(config,y_test, X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3, U, Sigma, u_test_snapshots, 25, scaler_Y)
     
-    predictions = model.predict((X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3))/Sigma[:40] # Shape: (batch_size, time_steps, num_modes)
+    predictions = model.predict((X_test, X_test_coarse1, X_test_coarse2,X_test_coarse3))/Sigma[:25] # Shape: (batch_size, time_steps, num_modes)
     # predictions = scaler_Y.inverse_transform(predictions.reshape(-1, predictions.shape[-1])).reshape(predictions.shape)
     predictions_reshaped = predictions.reshape(-1, predictions.shape[-1])  # Shape: (batch_size * time_steps, num_modes)
-    # predictions_inverse = scaler_Y.inverse_transform(predictions_reshaped)
+    # predictions_reshaped = scaler_Y.inverse_transform(predictions_reshaped)
 
-    prediction = reconstruct(U,Sigma,predictions_reshaped,num_modes=40)
+    prediction = reconstruct(U,Sigma,predictions_reshaped,num_modes=25)
     n = int(np.sqrt(prediction.shape[0]//2))
     print(prediction.shape)
     nt=2000
     #plot_2d_system_prediction(u_test_snapshots[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/exact_mf3.gif')
-    #plot_2d_system_prediction(prediction[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/predicted_mf3.gif')
-    plot_2d_system_prediction(np.abs(u_test_snapshots[:,nt:]-prediction[:,nt:]), train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/difference_mf3.gif',vmin=0.0,vmax=1.0)
+    plot_final_U_snapshot(prediction[:,:nt], train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/predicted_mf3.pdf')
+    plot_final_U_snapshot(np.abs(u_test_snapshots[:,:nt]-prediction[:,:nt]), train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/difference_mf3.pdf',title=r"$|U_{ex}-U_{MF}^{(3)}|$",vmin=0.0,vmax=1.0)
 
 if __name__ == "__main__":
     main()

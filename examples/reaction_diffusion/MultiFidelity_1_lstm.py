@@ -17,7 +17,7 @@ sys.path.extend([os.path.join(BASE_DIR, 'forward_models'), os.path.join(BASE_DIR
 from multi_fidelity_lstm import MultiFidelityLSTM
 from pod_utils import reshape_to_pod_2d_system_snapshots, project, reshape_to_lstm, reconstruct
 from data_utils import load_hdf5, prepare_lstm_dataset
-from plot_utils import plot_2d_system_prediction
+from plot_utils import plot_final_U_snapshot
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -51,8 +51,7 @@ def temporal_interpolation_splines(u_data_coarse, time_steps_coarse, time_steps_
     
     return u_data_coarse_interpolated
 
-
-def load_and_process_data(config, num_modes=40):
+def load_and_process_data(config, num_modes=25):
     """
     Load datasets, apply POD projection, and prepare LSTM-ready data.
     :param config: Configuration dictionary.
@@ -202,6 +201,7 @@ def evaluate_model(config, X_test, X_test_coarse1, U, Sigma, u_test_snapshots, n
 
     logging.info("Performing POD-based reconstruction...")
     predictions = model.predict((X_test, X_test_coarse1))/Sigma[:num_modes]  # Shape: (batch_size, time_steps, num_modes)
+    # predictions = model.predict((X_test, X_test_coarse1))  # Shape: (batch_size, time_steps, num_modes)
     # predictions = scaler_Y.inverse_transform(predictions.reshape(-1, predictions.shape[-1])).reshape(predictions.shape)
     predictions_reshaped = predictions.reshape(-1, predictions.shape[-1])  # Shape: (batch_size * time_steps, num_modes)
     # predictions_inverse = scaler_Y.inverse_transform(predictions_reshaped)
@@ -221,28 +221,28 @@ def main():
     # Backup configuration
     destination_folder = config["train_config"]["model_save_path"]
     # shutil.copy(config_filepath, destination_folder)
-
+    num_modes=25
     # Prepare datasets
-    X_train, X_train_coarse1, y_train, X_test, X_test_coarse1, y_test, U, Sigma, u_test_snapshots, scaler_Y = load_and_process_data(config, num_modes=40)
+    X_train, X_train_coarse1, y_train, X_test, X_test_coarse1, y_test, U, Sigma, u_test_snapshots, scaler_Y = load_and_process_data(config, num_modes=num_modes)
     print("12211222")
     print(u_test_snapshots)
     # Train the model
-    # train_model(config, X_train, X_train_coarse1, y_train, X_test, X_test_coarse1, y_test, Sigma)
+    train_model(config, X_train, X_train_coarse1, y_train, X_test, X_test_coarse1, y_test, Sigma)
 
     # Evaluate the model
-    model = evaluate_model(config, X_test, X_test_coarse1, U, Sigma, u_test_snapshots, num_modes=40, scaler_Y=scaler_Y)
+    model = evaluate_model(config, X_test, X_test_coarse1, U, Sigma, u_test_snapshots, num_modes=num_modes, scaler_Y=scaler_Y)
     
-    predictions = model.predict((X_test, X_test_coarse1))/Sigma[:40] # Shape: (batch_size, time_steps, num_modes)
-    # predictions = scaler_Y.inverse_transform(predictions.reshape(-1, predictions.shape[-1])).reshape(predictions.shape)
+    predictions = model.predict((X_test, X_test_coarse1))/Sigma[:25] # Shape: (batch_size, time_steps, num_modes)
+    #predictions = scaler_Y.inverse_transform(predictions.reshape(-1, predictions.shape[-1])).reshape(predictions.shape)
     predictions_reshaped = predictions.reshape(-1, predictions.shape[-1])  # Shape: (batch_size * time_steps, num_modes)
     # predictions_inverse = scaler_Y.inverse_transform(predictions_reshaped)
 
-    prediction = reconstruct(U,Sigma,predictions_reshaped,num_modes=40)
+    prediction = reconstruct(U,Sigma,predictions_reshaped,num_modes=num_modes)
     n = int(np.sqrt(prediction.shape[0]//2))
     nt=2000
     #plot_2d_system_prediction(u_test_snapshots[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/exact_mf1.gif')
-    #plot_2d_system_prediction(prediction[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/predicted_mf1.gif')
-    plot_2d_system_prediction(np.abs(u_test_snapshots[:,nt:]-prediction[:,nt:]), train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/difference_mf1.gif',vmin=0.0,vmax=1.0)
+    plot_final_U_snapshot(prediction[:,:nt], train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/predicted_mf1.pdf')
+    plot_final_U_snapshot(np.abs(u_test_snapshots[:,:nt]-prediction[:,:nt]), train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/difference_mf1.pdf',title=r"$|U_{ex}-U_{MF}^{(1)}|$",vmin=0.0,vmax=1.0)
 
 if __name__ == "__main__":
     main()

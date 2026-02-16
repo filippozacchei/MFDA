@@ -1,0 +1,30 @@
+#!/bin/bash
+
+#PBS -S /bin/bash
+#PBS -l walltime=140:00:00
+#PBS -l nodes=1:ppn=96
+#PBS -N DataGeb
+
+TORQUE_FILENAME_OUTPUT=times_rmse_out.log
+TORQUE_FILENAME_ERROR=times_rmse_err.log
+
+source /u/zacchei/miniconda3/bin/activate
+cd /u/zacchei/MFDA/examples/reaction_diffusion/
+
+sort ${PBS_NODEFILE} | uniq -c | awk '{printf("%s\n",$2);}'
+
+echo "==========================================" >  ${TORQUE_FILENAME_OUTPUT} 2>  ${TORQUE_FILENAME_ERROR}
+echo "Start time: $(date)"                        >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+echo "PBS_JOBID = \${PBS_JOBID}"                  >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+echo "PBS_NODEFILE ="                             >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+echo "\$(cat \${PBS_NODEFILE} | sed 's/^/    /')" >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+echo "==========================================" >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+
+conda activate eccomas
+
+python identification_plot.py > ${TORQUE_FILENAME_OUTPUT} 2> ${TORQUE_FILENAME_ERROR}
+
+echo "==========================================" >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+echo "End time: $(date)"                          >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+echo "==========================================" >> ${TORQUE_FILENAME_OUTPUT} 2>> ${TORQUE_FILENAME_ERROR}
+EOF

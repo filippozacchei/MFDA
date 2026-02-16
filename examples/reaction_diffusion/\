@@ -1,0 +1,62 @@
+{
+    "train_config": {
+        "epochs": 1000,
+        "batch_size": 5,
+        "n_splits": 4,
+        "scheduler_coeff": 0.99,
+        "scheduler_mode": "linear",
+        "optimizer": "adam",
+        "model_save_path": "./models/multi_fidelity/resolution_h2-h3-h4/"
+    },
+
+ 
+    "layers_config": {
+        "input_layers": {
+            "param": [
+                {"type": "Dense", "units": 32, "activation": "gelu", "rate": 0.0},
+                {"type": "Dense", "units": 32, "activation": "gelu", "rate": 0.0},
+                {"type": "Dense", "units": 32, "activation": "gelu", "rate": 0.0},
+                {"type": "Dense", "units": 32, "activation": "gelu", "rate": 0.0},
+                {"type": "Dense", "units": 32, "activation": "linear", "rate": 0.0}
+            ],
+            "coarse_solution1": [
+                {"type": "Dense", "units": 32, "activation": "linear", "rate": 0.0}
+            ],
+            "coarse_solution2": [
+               {"type": "Dense", "units": 32, "activation": "linear", "rate": 0.0}
+	    ],
+	    "coarse_solution3": [
+               {"type": "Dense", "units": 32, "activation": "linear", "rate": 0.0}
+            ]
+            
+        },
+
+        "output_layers": {
+            "output":[
+                {"type": "Dense", "units": 32, "activation": "linear", "rate":0.0},
+                {"type": "LSTM", "units": 32, "activation": "tanh", "rate":0.0, "return_seq": true},
+                {"type": "Dense", "units": 32, "activation": "linear", "rate":0.0},
+                {"type": "Dense", "units": 32, "activation": "linear", "rate":0.0}
+            ]}
+    },
+    "train": "./data/reaction_diffusion_training_h1.h5",
+    "test": "./data/reaction_diffusion_testing_h1.h5",    
+    "pod_basis": "./pod_data/pod_basis_system_h1.h5",
+
+    "train_coarse1": "./data/reaction_diffusion_training_h2.h5",
+    "test_coarse1": "./data/reaction_diffusion_testing_h2.h5",
+    "pod_basis_coarse1": "./pod_data/pod_basis_system_h2.h5",
+
+    "train_coarse2": "./data/reaction_diffusion_training_h3.h5",
+    "test_coarse2": "./data/reaction_diffusion_testing_h3.h5",
+    "pod_basis_coarse2": "./pod_data/pod_basis_system_h3.h5",
+
+    "train_coarse3": "./data/reaction_diffusion_training_h4.h5",
+    "test_coarse3": "./data/reaction_diffusion_testing_h4.h5",
+    "pod_basis_coarse3": "./pod_data/pod_basis_system_h4.h5",
+
+    "coeff": 1e-8,
+    "output_activation": "linear",
+    "merge_mode": "concat" 
+
+}

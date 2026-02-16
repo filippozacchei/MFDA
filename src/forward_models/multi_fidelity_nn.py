@@ -6,10 +6,9 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 import tensorflow as tf
 
-
-
 from typing import List, Dict, Tuple, Any
 from single_fidelity_nn import *
+
 
 class PrintEveryNEpoch(Callback):
     def __init__(self, n, total_epochs):
@@ -167,13 +166,13 @@ class MultiFidelityNN(SingleFidelityNN):
         x = Dense(self.layers_config['input_layers'][fidelity][0]['units'], 
                   activation=self.layers_config['input_layers'][fidelity][0]['activation'], 
                   kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform')(input_layer)
-        x = Dropout(rate=self.layers_config['input_layers'][fidelity][0]['rate'])(x)
+        #x = Dropout(rate=self.layers_config['input_layers'][fidelity][0]['rate'])(x)
         
         for layer in self.layers_config['input_layers'][fidelity][1:]:
             x = Dense(layer['units'], 
                       activation=layer['activation'], 
                       kernel_regularizer=l2(self.coeff), kernel_initializer='glorot_uniform')(x)
-            x = Dropout(rate=layer['rate'])(x)
+            #x = Dropout(rate=layer['rate'])(x)
         return x
 
     def kfold_train(self, X_train_fidelities: List[np.ndarray], y_train: np.ndarray, X_test_fidelities=None, y_test=None, step=10) -> None:
@@ -234,7 +233,7 @@ class MultiFidelityNN(SingleFidelityNN):
         self.model = self.build_model()
 
         # Compile the model
-        self.model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mean_squared_error'])
+        self.model.compile(optimizer=tf.keras.optimizers.AdamW(), loss='mean_squared_error', metrics=['mean_squared_error'])
         
         # print("X_Train:", X_train_fidelities)
         # print("X_Test:", X_test_fidelities)
@@ -246,14 +245,13 @@ class MultiFidelityNN(SingleFidelityNN):
         # print("Y_train:", y_train.shape)
         # print("Y_test:", y_test.shape)
         # Train the model
-        self.model.fit(X_train_fidelities, y_train,
+        self.model.fit(X_train_fidelities,y_train,
                         epochs=self.train_config['epochs'],
                         batch_size=self.train_config['batch_size'],
                         validation_data=(X_test_fidelities, y_test),
-                        validation_freq = 10,
+                        validation_freq = 100,
                         callbacks = [LearningRateScheduler(self.lr_scheduler), PrintEveryNEpoch(10, self.train_config['epochs'])],
                         verbose=0)
-
         try:
             model_save_path = os.path.join(self.train_config['model_save_path'], f'model.keras')
             self.model.save(model_save_path)

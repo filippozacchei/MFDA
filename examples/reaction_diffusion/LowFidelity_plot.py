@@ -21,7 +21,7 @@ from model import Model_DR
 from multi_fidelity_lstm import MultiFidelityLSTM
 from pod_utils import reshape_to_pod_2d_system_snapshots, project, reshape_to_lstm, reconstruct
 from data_utils import load_hdf5, prepare_lstm_dataset
-from plot_utils import plot_2d_system_prediction
+from plot_utils import plot_final_U_snapshot
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -119,10 +119,10 @@ def main():
 
     u_test_snapshots, u_test_snapshots_coarse1, u_test_snapshots_coarse2, u_test_snapshots_coarse3, test_data, test_data_coarse1, test_data_coarse2, test_data_coarse3 = load_and_process_data(config, num_modes=40)
     nt=2000
-    #plot_2d_system_prediction(u_test_snapshots[:,nt:], test_data['x'], test_data['y'], test_data['x'].shape[0], n_steps=10001, save_path='./gif/exact_hf.gif')
-    #plot_2d_system_prediction(u_test_snapshots_coarse1[:,nt:], test_data_coarse1['x'], test_data_coarse1['y'], test_data_coarse1['x'].shape[0], n_steps=10001, save_path='./gif/exact_lf1.gif')
-    #plot_2d_system_prediction(u_test_snapshots_coarse2[:,nt:], test_data_coarse2['x'], test_data_coarse2['y'], test_data_coarse2['x'].shape[0], n_steps=10001, save_path='./gif/exact_lf2.gif')
-    #plot_2d_system_prediction(u_test_snapshots_coarse3[:,nt:], test_data_coarse3['x'], test_data_coarse3['y'], test_data_coarse3['x'].shape[0], n_steps=10001, save_path='./gif/exact_lf3.gif')
+    plot_final_U_snapshot(u_test_snapshots[:,:nt], test_data['x'], test_data['y'], test_data['x'].shape[0], n_steps=1001, save_path='./gif/exact_hf.pdf')
+    plot_final_U_snapshot(u_test_snapshots_coarse1[:,:nt], test_data_coarse1['x'], test_data_coarse1['y'], test_data_coarse1['x'].shape[0], n_steps=1001, save_path='./gif/exact_lf1.pdf')
+    plot_final_U_snapshot(u_test_snapshots_coarse2[:,:nt], test_data_coarse2['x'], test_data_coarse2['y'], test_data_coarse2['x'].shape[0], n_steps=1001, save_path='./gif/exact_lf2.pdf')
+    plot_final_U_snapshot(u_test_snapshots_coarse3[:,:nt], test_data_coarse3['x'], test_data_coarse3['y'], test_data_coarse3['x'].shape[0], n_steps=1001, save_path='./gif/exact_lf3.pdf')
 
     solver_h1 = Model_DR(n=128, dt=0.05, L=20., T=50.05)
     i_indices_lf1 = np.array([np.argmin(np.abs(solver_h1.x - x)) for x in test_data_coarse1['x']])
@@ -144,9 +144,9 @@ def main():
     err_coarse1 = u_test_snapshots_coarse1 - reshape_to_pod_2d_system_snapshots(hf_coarse1_u, hf_coarse1_v)
     err_coarse2 = u_test_snapshots_coarse2 - reshape_to_pod_2d_system_snapshots(hf_coarse2_u, hf_coarse2_v)
     err_coarse3 = u_test_snapshots_coarse3 - reshape_to_pod_2d_system_snapshots(hf_coarse3_u, hf_coarse3_v)
-    plot_2d_system_prediction(np.abs(err_coarse1[:,nt:]), test_data_coarse1['x'], test_data_coarse1['y'], test_data_coarse1['x'].shape[0], n_steps=10001, save_path='./gif/error_lf1.gif',vmin=0.0,vmax=1.0)
-    plot_2d_system_prediction(np.abs(err_coarse2[:,nt:]), test_data_coarse2['x'], test_data_coarse2['y'], test_data_coarse2['x'].shape[0], n_steps=10001, save_path='./gif/error_lf2.gif',vmin=0.0,vmax=1.0)
-    plot_2d_system_prediction(np.abs(err_coarse3[:,nt:]), test_data_coarse3['x'], test_data_coarse3['y'], test_data_coarse3['x'].shape[0], n_steps=10001, save_path='./gif/error_lf3.gif',vmin=0.0,vmax=1.0)
+    plot_final_U_snapshot(np.abs(err_coarse1[:,:nt]), test_data_coarse1['x'], test_data_coarse1['y'], test_data_coarse1['x'].shape[0], n_steps=1001, save_path='./gif/error_lf1.pdf',vmin=0.0,vmax=1.0,title=r"$|U_{HF}-U_{LF}^{(3)}|$")
+    plot_final_U_snapshot(np.abs(err_coarse2[:,:nt]), test_data_coarse2['x'], test_data_coarse2['y'], test_data_coarse2['x'].shape[0], n_steps=1001, save_path='./gif/error_lf2.pdf',vmin=0.0,vmax=1.0,title=r"$|U_{HF}-U_{LF}^{(2)}|$")
+    plot_final_U_snapshot(np.abs(err_coarse3[:,:nt]), test_data_coarse3['x'], test_data_coarse3['y'], test_data_coarse3['x'].shape[0], n_steps=1001, save_path='./gif/error_lf3.pdf',vmin=0.0,vmax=1.0,title=r"$|U_{HF}-U_{LF}^{(1)}|$")
 
 if __name__ == "__main__":
     main()

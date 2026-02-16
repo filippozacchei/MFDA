@@ -2,6 +2,40 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.animation as animation
 
+
+def plot_final_U_snapshot(U, x, y, n, title='U', save_path="final_U_plot.png", vmin=None, vmax=None, cmap='jet', n_steps=1000):
+    """
+    Creates a high-quality static plot of the U quantity at the final time step.
+
+    Parameters:
+    - U: np.ndarray, shape (2 * n^2, T), combined U and V fields across time steps.
+    - x, y: 1D meshgrid coordinates.
+    - n: int, spatial grid resolution (n x n).
+    - save_path: str, file path to save the figure.
+    - vmin, vmax: float or None, optional color scale limits.
+    - cmap: str, colormap for the plot.
+    """
+
+    grid_points = n * n
+    U_final = U[:grid_points, -1].reshape((n, n))
+
+    fig, ax = plt.subplots(figsize=(5, 4))
+    c = ax.pcolormesh(x, y, U_final, shading='auto', cmap=cmap, vmin=vmin, vmax=vmax)
+
+    cbar = plt.colorbar(c, ax=ax, pad=0.02)
+    cbar.set_label(title, fontsize=12)
+
+    ax.set_xlabel("x", fontsize=12)
+    ax.set_ylabel("y", fontsize=12)
+    ax.set_aspect('equal')
+
+    ax.tick_params(axis='both', labelsize=10)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Final U snapshot saved to {save_path}")
+
 def plot_2d_pod_modes(U, x, y, n, num_modes=15):
     """Visualizes the first few POD modes."""
     for i in range(num_modes):
@@ -61,11 +95,11 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.
     plt.colorbar(c1, ax=ax1)
     plt.colorbar(c2, ax=ax2)
 
-    ax1.set_title("POD Mode 1 (U)")
+    ax1.set_title("U")
     ax1.set_xlabel('x')
     ax1.set_ylabel('y')
 
-    ax2.set_title("POD Mode 1 (V)")
+    ax2.set_title("V")
     ax2.set_xlabel('x')
     ax2.set_ylabel('y')
 
@@ -77,16 +111,17 @@ def plot_2d_system_prediction(U, x, y, n, n_steps=100, save_path="pod_animation.
         c1.set_array(mode_u.ravel())  # Update U mode
         c2.set_array(mode_v.ravel())  # Update V mode
 
-        ax1.set_title(f"POD Mode {i+1} (U)")
-        ax2.set_title(f"POD Mode {i+1} (V)")
+        ax1.set_title(f"U")
+        ax2.set_title(f"V")
 
         return c1, c2
 
     # Create animation
-    ani = animation.FuncAnimation(fig, update, frames=range(0,n_steps,100), interval=10, blit=False)
+    ani = animation.FuncAnimation(
+        fig, update, frames=range(0,min(U.shape[1], n_steps),10), interval=100, blit=False
+    )
 
-    # Save animation as GIF (no ffmpeg required)
-    ani.save(save_path, writer='pillow', fps=50)  
+    ani.save(save_path, writer='pillow', fps=5)
     print(f"Animation saved as {save_path}")
 
     plt.show()

@@ -68,14 +68,14 @@ def reconstruct(U, sigma, time_coefficients, num_modes, original_snapshots=None)
         return reconstructed, error_rmse 
     return reconstructed
 
-def reconstruct_eff(U,sigma,coeff,num_modes,nt=1001,n_sample=200):
+def reconstruct_eff(U,sigma,coeff,num_modes,nt=251,n_sample=200):
     pred = U[:,:num_modes] @ (coeff[:,:num_modes]*sigma[:num_modes]).T  
     n_cr = U.shape[0]//2
     n_gr = int(np.sqrt(n_cr))
     return pred[:n_cr,:].reshape(n_sample,n_gr,n_gr,nt), pred[n_cr:,:].reshape(n_sample,n_gr,n_gr,nt)
 
-def reconstruct_eff1(U,coeff,num_modes,nt=1001):
-    pred = U[:,:num_modes] @ (coeff[:,:num_modes]).T
+def reconstruct_eff1(U,sigma,coeff,num_modes,nt=251):
+    pred = U[:,:num_modes] @ (coeff[:,:num_modes]*sigma[:num_modes]).T
     n_cr = U.shape[0]//2
     n_gr = int(np.sqrt(n_cr))
     return pred[:n_cr,:].reshape(n_gr,n_gr,nt), pred[n_cr:,:].reshape(n_gr,n_gr,nt)

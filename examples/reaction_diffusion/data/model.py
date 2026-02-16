@@ -25,6 +25,23 @@ class Model_DR:
         self.u = None
         self.v = None
 
+    def reaction_diffusion_rhs_linear_fourier(t, uvt, K22, d1, beta, n, N):
+        # Unpack as before
+        ut_real = uvt[:N]
+        ut_imag = uvt[N:2*N]
+        vt_real = uvt[2*N:3*N]
+        vt_imag = uvt[3*N:]
+        
+        # Linear operator in Fourier space: λ(k) = 1 - d1*K^2
+        lam = 1.0 - d1 * K22  # shape (N,)
+        
+        rhs_u_real = lam * ut_real
+        rhs_u_imag = lam * ut_imag
+        rhs_v_real = lam * vt_real
+        rhs_v_imag = lam * vt_imag
+        
+        return np.concatenate([rhs_u_real, rhs_u_imag, rhs_v_real, rhs_v_imag])
+
     def reaction_diffusion_rhs_real(self, t, uvt, K22, d1, beta, n, N):
         # Separate the real and imaginary parts
         ut_real = uvt[:N].reshape((n, n))
@@ -80,7 +97,6 @@ class Model_DR:
         
         # Solve the reaction-diffusion system
         solver = ode(self.reaction_diffusion_rhs_real)
-        solver.set_integrator('dopri5')
         solver.set_f_params(self.K22, d1, beta, self.n, self.N)
         solver.set_initial_value(uvt_real_imag, self.t[0])
         

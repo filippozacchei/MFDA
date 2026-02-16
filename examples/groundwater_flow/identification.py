@@ -29,19 +29,21 @@ import tinyDA as tda
 
 from model import Model
 # from utils import *
+start_time = timeit.default_timer()
 
 case = "MFDA1"  # "MFDA1", "MLDA1", "FOM"
+label = 0
 
 # MCMC Parameters
 noise        = 0.01
 noise_Str    = str(noise).replace('.', '_')
-scaling      = 0.001
+scaling      = 0.01
 scale        = str(scaling).replace('.', '_')
 scaling1     = 1
 scaling2     = 1
 scaling3     = 1
-n_iter       = 26000
-burnin       = 1000
+n_iter       = 15100
+burnin       = 100
 sub_sampling  = 1
 thin         = 1
 level = 'fine'
@@ -116,15 +118,15 @@ def model_LF4(input): return solver_h5_data(input).flatten()
 
 y_values = np.zeros((n_samples,25))
 if case == "MFDA1":
-    sub_sampling = [4,2,2]
+    sub_sampling = [10,2,1]
     
     level=3
 
     # Load Models for Low- and Multi-fidelity Predictions
-    models_1 = load_model(f'models/multi_fidelity/input_5/samples_{n_train_samples}/model.keras')
-    models_2 = load_model(f'models/multi_fidelity/input_5_10/samples_{n_train_samples}/model.keras')
-    models_3 = load_model(f'models/multi_fidelity/input_5_10_25/samples_{n_train_samples}/model.keras')
-    models_4 = load_model(f'models/multi_fidelity/input_5_10_25_50/samples_{n_train_samples}/model.keras')
+    models_1 = load_model(f'models/multi_fidelity_256/input_5/samples_{n_train_samples}/model.keras')
+    models_2 = load_model(f'models/multi_fidelity_256/input_5_10/samples_{n_train_samples}/model.keras')
+    models_3 = load_model(f'models/multi_fidelity_256/input_5_10_25/samples_{n_train_samples}/model.keras')
+    models_4 = load_model(f'models/multi_fidelity_256/input_5_10_25_50/samples_{n_train_samples}/model.keras')
 
     @tf.function(jit_compile=True) 
     def model_mf1(input1, input2):
@@ -229,7 +231,7 @@ if case == "MFDA1":
         print(f"Error {key}: {err}")
     
 elif case == "MLDA1":
-    sub_sampling=[2,2,2,2]
+    sub_sampling=[5,2,2,1]
     level=4
     model_0 = model_LF4
     model_1 = model_LF3
@@ -243,7 +245,7 @@ x_distribution = stats.multivariate_normal(mean=np.zeros(64), cov=np.eye(64))
 Times, Time_ESS, ESS, samples_tot, ERR, RHAT = [], [], [], [], [], []
 
 # Sampling for Each Random Sample
-for i in range(n_samples):
+for i in [label]:
     print(f'Sample = {i}')
     x_true = X_values[i]
     y_true = model_HF(x_true)
@@ -255,12 +257,14 @@ for i in range(n_samples):
         print(f"\nMSE coarse simulation 4 test:  {np.sqrt(np.mean((model_3(x_true) - y_true)**2)):.4e}")
         print(f"\nMSE coarse simulation HF test:  {np.sqrt(np.mean((model_HF(x_true) - y_true)**2)):.4e}")
 
+    """
     def ls(x):
         return (y_observed-model_HF(x))
 
     res = least_squares(ls,np.zeros_like((x_true)), jac='3-point')
     covariance = np.linalg.pinv(res.jac.T @ res.jac)
     covariance *= 1/np.max(np.abs(covariance))
+    """
 
     # Likelihood Distributions
     cov_likelihood = noise**2 * np.eye(25)
@@ -270,7 +274,8 @@ for i in range(n_samples):
     y_distribution_3 = tda.AdaptiveGaussianLogLike(y_observed, cov_likelihood*scaling2)
     y_distribution_4 = tda.GaussianLogLike(y_observed, cov_likelihood*scaling3)
     y_distribution_fine = tda.GaussianLogLike(y_observed, cov_likelihood)
-    my_proposal = tda.GaussianRandomWalk(C=covariance,scaling=scaling, adaptive=True, gamma=1.1, period=10)
+    my_proposal = tda.AdaptiveMetropolis(C=scaling*covariance, adaptive=True, gamma=1.01, period=100)
+    # my_proposal = tda.CrankNicolson(scaling=scaling, adaptive=True, gamma=1.1, period=10)
 
     # Initialize Posteriors
     if case == "MFDA1":
@@ -293,7 +298,6 @@ for i in range(n_samples):
             tda.Posterior(x_distribution, y_distribution_fine, model_HF)
         ]
 
-    start_time = timeit.default_timer()
     samples = tda.sample(
        my_posteriors,
        my_proposal,
@@ -328,13 +332,85 @@ for i in range(n_samples):
     ERR.append(err)
     RHAT.append(mean_rhat)
     print(f'Time: {elapsed_time:.2f}, RHAT: {mean_rhat:.4f}, ESS: {mean_ess:.2f}, Time/ESS: {elapsed_time / mean_ess:.2f}, Err: {err:.3f} ({i}/{n_samples})',flush=True)
-    
 
+    # --- Determine convergence time by scanning R_hat over draws ---
+    posterior = idata.posterior
+
+    # Extract draws as array: (chains, draws, params)
+    arr = np.stack([posterior[v].values for v in variables], axis=-1)  # shape: (chains, draws, vars)
+
+    draws = arr.shape[1]  # number of posterior draws after burn-in
+    rhat_threshold = 1.01
+
+    # Walk through the chain and find first index where R_hat ≤ 1.01
+    conv_index = None
+    for k in range(100, draws, 100):  # check every 100 draws to reduce cost
+        partial_idata = idata.sel(draw=slice(0, k))
+        rhat_k = az.rhat(partial_idata)
+        mean_rhat_k = np.max([rhat_k.data_vars[v].values.flatten() for v in variables])
+        if mean_rhat_k <= rhat_threshold:
+            conv_index = k
+            break
+
+    # If never reached threshold, treat full chain as needed
+    if conv_index is None:
+        conv_index = draws
+
+    # Convert convergence index back to iterations (before burnin thinning)
+    iter_per_draw = thin
+    conv_iters = conv_index * iter_per_draw
+
+    # Adjust runtime proportionally
+    time_adjusted = elapsed_time * (conv_iters / n_iter)
+
+    # Store adjusted runtime
+    Times_Adjusted = []
+    Times_Adjusted.append(time_adjusted)
+
+    print(f"Convergence Iterations: {conv_iters}, Adjusted Time: {time_adjusted:.2f} s")
     
-# Save Results
+posterior_samples = idata.posterior
+posterior_filepath = os.path.join(output_folder, f'MDA_{case}_posterior.nc')
+posterior_samples.to_netcdf(posterior_filepath)  # Saves in NetCDF format
+'''
+# ==== Plot posterior distributions for first 4 parameters ====
+fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+axes = axes.flatten()
+
+for idx in range(4):
+    var_name = f"x{idx}"
+    if var_name not in posterior_samples:
+        raise KeyError(f"{var_name} not found in posterior samples.")
+
+    # Extract all samples across chains
+    vals = posterior_samples[var_name].values.flatten()
+
+    # Plot posterior density
+    az.plot_kde(vals, ax=axes[idx])
+    axes[idx].axvline(x_true[idx], color='red', linestyle='--', label='True value')
+    axes[idx].set_title(f"Posterior of {var_name}")
+    axes[idx].legend()
+
+plt.tight_layout()
+plt.show()
+'''
+import numpy as np
+import os
+
+def append_or_create_npy(filepath, new_data):
+    if os.path.exists(filepath):
+        old_data = np.load(filepath)
+        combined = np.concatenate((old_data, np.array(new_data)))
+    else:
+        combined = np.array(new_data)
+    np.save(filepath, combined)
+    
+# Save (append) results
 output_folder = './data/recorded_values'
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_ratio.npy'), Time_ESS)
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_times.npy'), Times)
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_ess.npy'), ESS)
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_rhat.npy'), RHAT)
-np.save(os.path.join(output_folder, f'MDA_MF_{case}_err.npy'), ERR)
+
+append_or_create_npy(os.path.join(output_folder, f'MDA_8_{case}_ratio.npy'), Time_ESS)
+append_or_create_npy(os.path.join(output_folder, f'MDA_8_{case}_times.npy'), Times)
+append_or_create_npy(os.path.join(output_folder, f'MDA_8_{case}_ess.npy'), ESS)
+append_or_create_npy(os.path.join(output_folder, f'MDA_8_{case}_rhat.npy'), RHAT)
+append_or_create_npy(os.path.join(output_folder, f'MDA_8_{case}_err.npy'), ERR)
+    

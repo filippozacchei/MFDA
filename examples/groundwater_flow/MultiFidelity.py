@@ -70,6 +70,10 @@ def main():
     if X_test_coarse3.shape == y_test.shape:
         logging.info(f"\nMSE coarse simulation 3 train:  {np.sqrt(np.mean((X_train_coarse3 - y_train)**2)):.4e}")
         logging.info(f"\nMSE coarse simulation 3 test:  {np.sqrt(np.mean((X_test_coarse3 - y_test)**2)):.4e}")
+    
+    if X_test_coarse4.shape == y_test.shape:
+        logging.info(f"\nMSE coarse simulation 4 train:  {np.sqrt(np.mean((X_train_coarse4 - y_train)**2)):.4e}")
+        logging.info(f"\nMSE coarse simulation 4 test:  {np.sqrt(np.mean((X_test_coarse4 - y_test)**2)):.4e}")
 
     
     # Initialize the multiFidelityNN model
@@ -96,11 +100,13 @@ def main():
 
     # # Train the model using K-Fold cross-validation
     logging.info("Starting K-Fold training")
-    mfnn_model.kfold_train([X_train_param, X_train_coarse1, X_train_coarse2, X_train_coarse3, X_train_coarse4], y_train,[X_test_param,X_test_coarse1, X_test_coarse2, X_test_coarse3, X_test_coarse4],y_test)
+    mfnn_model.train([X_train_param, X_train_coarse1, X_train_coarse2, X_train_coarse3, X_train_coarse4], y_train,[X_test_param,X_test_coarse1, X_test_coarse2, X_test_coarse3, X_test_coarse4],y_test)
     
     # plot_results(X_test, y_test, mfnn_model.model)
     
+    
     print("Test Error: ", np.mean((mfnn_model.model([X_test_param,X_test_coarse1, X_test_coarse2, X_test_coarse3, X_test_coarse4])-y_test)**2))
+    
     
     logging.info("Training completed successfully!")
 

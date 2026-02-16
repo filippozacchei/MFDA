@@ -76,11 +76,11 @@ def downsample_2d_system_pod_modes(U_fine, n_fine, n_coarse):
 ###############################################################################
 # 2. Main POD pipeline
 ###############################################################################
-resolution = 'h4'
+resolution = 'h1'
 
 def get_output_name(resolution=''):
     """Generates the output filename for POD basis."""
-    return f'pod_basis_system_{resolution}_2step.h5'
+    return f'pod_basis_system_{resolution}_bis.h5'
 
 def get_data_filenames(data_path, resolution=''):
     """Generates training and testing dataset filenames based on resolution."""
@@ -102,8 +102,8 @@ train_data = load_hdf5(train_filename)
 # Reshape data into 2D snapshots
 logging.info("Reshaping training and testing data.")
 # You can limit how many samples you load, e.g. [:20], or adjust as needed
-u_train_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'][:20], train_data['v'][:20])
-u_test_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'][20:], train_data['v'][20:])
+u_train_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'][:120], train_data['v'][:120])
+u_test_snapshots = reshape_to_pod_2d_system_snapshots(train_data['u'][120:], train_data['v'][120:])
 
 # 3. Compute POD using randomized SVD
 logging.info("Computing POD basis using randomized SVD.")
@@ -132,26 +132,26 @@ n_fine = int(np.sqrt(U_fine.shape[0] // 2))
 # Suppose you have a coarse grid n_coarse. For example: 64, 32, or 16, etc.
 n_coarse_list = [64, 32, 16]  # or any set of target coarse grids
 
-# for n_coarse in n_coarse_list:
-#     if n_fine % n_coarse != 0:
-#         logging.warning(f"Skipping n_coarse={n_coarse} because n_fine={n_fine} is not divisible.")
-#         continue
+for n_coarse in n_coarse_list:
+     if n_fine % n_coarse != 0:
+         logging.warning(f"Skipping n_coarse={n_coarse} because n_fine={n_fine} is not divisible.")
+         continue
     
-#     logging.info(f"Down-sampling POD modes from {n_fine}x{n_fine} to {n_coarse}x{n_coarse}.")
-#     U_coarse = downsample_2d_system_pod_modes(U_fine, n_fine, n_coarse)
-#     x2 = np.linspace(-10, 10, n_coarse + 1)
-#     x = x2[:-1]
-#     y = x
-#     # Now U_coarse has shape (2 * n_coarse^2, r).
-#     # You could also save these coarse modes or do further analysis:
-#     coarse_output_name = f'pod_basis_system_{resolution}_{n_coarse}x{n_coarse}.h5'
-#     save_hdf5(
-#         coarse_output_name,
-#         {'POD_modes_coarse': U_coarse,
-#         'singular_values_fine': Sigma},{  # same Sigma from the fine SVD
-#         'num_modes': U_coarse.shape[1]}
-#     )
+     logging.info(f"Down-sampling POD modes from {n_fine}x{n_fine} to {n_coarse}x{n_coarse}.")
+     U_coarse = downsample_2d_system_pod_modes(U_fine, n_fine, n_coarse)
+     x2 = np.linspace(-10, 10, n_coarse + 1)
+     x = x2[:-1]
+     y = x
+     # Now U_coarse has shape (2 * n_coarse^2, r).
+     # You could also save these coarse modes or do further analysis:
+     coarse_output_name = f'pod_basis_system_{resolution}_{n_coarse}x{n_coarse}_bis.h5'
+     save_hdf5(
+         coarse_output_name,
+         {'POD_modes_coarse': U_coarse,
+         'singular_values_fine': Sigma},{  # same Sigma from the fine SVD
+         'num_modes': U_coarse.shape[1]}
+     )
 
-#     logging.info(f"Saved down-sampled coarse POD basis to {coarse_output_name}")
+     logging.info(f"Saved down-sampled coarse POD basis to {coarse_output_name}")
 
-# logging.info("POD processing (fine + coarse) pipeline completed successfully.")
+logging.info("POD processing (fine + coarse) pipeline completed successfully.")

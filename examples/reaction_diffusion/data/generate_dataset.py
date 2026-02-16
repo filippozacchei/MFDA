@@ -8,14 +8,14 @@ import logging
 np.random.seed(40) # 40 train, 41 test
 
 # Parameters
-num_samples = 2000               # Number of LHS samples
+num_samples = 200               # Number of LHS samples
 d1_range = [0.01, 0.1]
 beta_range = [0.5, 1.5]
 L = 20                         # Domain size
-n = 16                         # Grid size
+n = 64                         # Grid size
 N = n * n                      # Total grid points
-t = np.arange(0, 50.05, 0.05)   # Time vector
-output_name = 'reaction_diffusion_training_h4_long.h5'
+t = np.arange(0, 50.05, 0.2)   # Time vector
+output_name = 'reaction_diffusion_training_h2.h5'
 
 # Generate LHS samples
 lhs_samples = np.random.rand(num_samples, 2)
@@ -74,6 +74,23 @@ def reaction_diffusion_rhs_real(t, uvt, K22, d1, beta, n, N):
     
     return np.concatenate([rhs_u_real, rhs_u_imag, rhs_v_real, rhs_v_imag])
 
+def reaction_diffusion_rhs_linear_fourier(t, uvt, K22, d1, beta, n, N):
+    # Unpack as before
+    ut_real = uvt[:N]
+    ut_imag = uvt[N:2*N]
+    vt_real = uvt[2*N:3*N]
+    vt_imag = uvt[3*N:]
+    
+    # Linear operator in Fourier space: λ(k) = 1 - d1*K^2
+    lam = 1.0 - d1 * K22  # shape (N,)
+    
+    rhs_u_real = lam * ut_real
+    rhs_u_imag = lam * ut_imag
+    rhs_v_real = lam * vt_real
+    rhs_v_imag = lam * vt_imag
+    
+    return np.concatenate([rhs_u_real, rhs_u_imag, rhs_v_real, rhs_v_imag])
+    
 # Main loop for simulations
 for i in range(num_samples):
     d1 = d1_values[i]
@@ -92,7 +109,6 @@ for i in range(num_samples):
     
     # Solve the reaction-diffusion system
     solver = ode(reaction_diffusion_rhs_real)
-    solver.set_integrator('dopri5')
     solver.set_f_params(K22, d1, beta, n, N)
     solver.set_initial_value(uvt_real_imag, t[0])
     
