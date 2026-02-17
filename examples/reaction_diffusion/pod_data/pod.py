@@ -131,8 +131,8 @@ n_fine = int(np.sqrt(U_fine.shape[0] // 2))
 ###############################################################################
 # Suppose you have a coarse grid n_coarse. For example: 64, 32, or 16, etc.
 n_coarse_list = [64, 32, 16]  # or any set of target coarse grids
-
-for n_coarse in n_coarse_list:
+res_lis = ["h2", "h3", "h4"]
+for n_coarse,res in zip(n_coarse_list, res_lis):
      if n_fine % n_coarse != 0:
          logging.warning(f"Skipping n_coarse={n_coarse} because n_fine={n_fine} is not divisible.")
          continue
@@ -144,7 +144,7 @@ for n_coarse in n_coarse_list:
      y = x
      # Now U_coarse has shape (2 * n_coarse^2, r).
      # You could also save these coarse modes or do further analysis:
-     coarse_output_name = f'pod_basis_system_{resolution}_{n_coarse}x{n_coarse}_bis.h5'
+     coarse_output_name = f'pod_basis_system_{res}.h5'
      save_hdf5(
          coarse_output_name,
          {'POD_modes_coarse': U_coarse,

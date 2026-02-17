@@ -17,7 +17,7 @@ sys.path.extend([os.path.join(BASE_DIR, 'forward_models'), os.path.join(BASE_DIR
 from multi_fidelity_lstm import MultiFidelityLSTM
 from pod_utils import reshape_to_pod_2d_system_snapshots, project, reshape_to_lstm, reconstruct
 from data_utils import load_hdf5, prepare_lstm_dataset
-from plot_utils import plot_final_U_snapshot
+from plot_utils import plot_2d_system_prediction, plot_final_U_snapshot
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -51,7 +51,7 @@ def temporal_interpolation_splines(u_data_coarse, time_steps_coarse, time_steps_
     
     return u_data_coarse_interpolated
 
-def load_and_process_data(config, num_modes=25):
+def load_and_process_data(config, num_modes=5):
     """
     Load datasets, apply POD projection, and prepare LSTM-ready data.
     :param config: Configuration dictionary.
@@ -62,6 +62,9 @@ def load_and_process_data(config, num_modes=25):
     train_data = load_hdf5(config["train"])
     test_data = load_hdf5(config["test"])
     pod_basis = load_hdf5(config["pod_basis"])
+    
+    print(train_data['d1'])
+    print(test_data['d1'])
     
     train_data_coarse1 = load_hdf5(config["train_coarse1"])
     test_data_coarse1 = load_hdf5(config["test_coarse1"])
@@ -239,10 +242,10 @@ def main():
 
     prediction = reconstruct(U,Sigma,predictions_reshaped,num_modes=num_modes)
     n = int(np.sqrt(prediction.shape[0]//2))
-    nt=2000
-    #plot_2d_system_prediction(u_test_snapshots[:,nt:], train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/exact_mf1.gif')
-    plot_final_U_snapshot(prediction[:,:nt], train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/predicted_mf1.pdf')
-    plot_final_U_snapshot(np.abs(u_test_snapshots[:,:nt]-prediction[:,:nt]), train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/difference_mf1.pdf',title=r"$|U_{ex}-U_{MF}^{(1)}|$",vmin=0.0,vmax=1.0)
+    #
+    # plot_2d_system_prediction(u_test_snapshots, train_data['x'], train_data['y'], n, n_steps=10001, save_path='./gif/exact_mf1.gif')
+    plot_final_U_snapshot(prediction, train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/predicted_mf1.pdf')
+    plot_final_U_snapshot(np.abs(u_test_snapshots-prediction), train_data['x'], train_data['y'], n, n_steps=1001, save_path='./gif/difference_mf1.pdf',title=r"$|U_{ex}-U_{MF}^{(1)}|$",vmin=0.0,vmax=1.0)
 
 if __name__ == "__main__":
     main()

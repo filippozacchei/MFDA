@@ -40,7 +40,7 @@ from multi_fidelity_lstm import MultiFidelityLSTM
 
 start_time = timeit.default_timer()
 
-case = "FOM"  #
+case = "MFDA1"  #
 print(case)
 
 # MCMC Parameters
@@ -144,6 +144,7 @@ solver_h4 = Model_DR(n=16,  dt=1.0, L=20., T=50.05)
 # Define Points for Data Extraction1
 
 x_data = y_data = np.array([-7.5,-6.25,-5.0,-3.75,-2.5,-1.25,0.0,1.25,2.5,3.75,5.0,6.25,7.5])
+# x_data = y_data = np.array([-5.0,5.0])
 datapoints = np.array(list(product(x_data, y_data)))
 i_indices = np.array([np.argmin(np.abs(solver_h1.x - x)) for x in datapoints[:, 0]])
 j_indices = np.array([np.argmin(np.abs(solver_h1.y - y)) for y in datapoints[:, 1]])
@@ -237,9 +238,9 @@ x_distribution = CustomUniform([0.01,0.5],[0.1,1.5])
 
 if case == "MFDA1":
     # Load Models for Low- and Multi-fidelity Predictions
-    models_1 = load_model(f'models/multi_fidelity_bis/resolution_h4/model.keras', safe_mode=False)
-    models_2 = load_model(f'models/multi_fidelity_bis/resolution_h3-h4/model.keras', safe_mode=False)
-    models_3 = load_model(f'models/multi_fidelity_bis/resolution_h2-h3-h4/model.keras', safe_mode=False)
+    models_1 = load_model(f'models/multi_fidelity/resolution_h4/model.keras', safe_mode=False)
+    models_2 = load_model(f'models/multi_fidelity/resolution_h3-h4/model.keras', safe_mode=False)
+    models_3 = load_model(f'models/multi_fidelity/resolution_h2-h3-h4/model.keras', safe_mode=False)
     config_filepath = 'config/config_MultiFidelity_3.json'
     config = load_configuration(config_filepath)
     pod_basis = load_hdf5(config["pod_basis"])
@@ -292,6 +293,7 @@ if case == "MFDA1":
         return X
 
     def model_1(input_data):
+        print(input_data)
         coarse_data = prepare_coarse_data(solver_h4, U_coarse3, Sigma_coarse3, input_data, time_steps_coarseh4, grid_points_h4, num_modes)
         X = prepare_input(input_data, time_steps_fine)
         X = scaler_X.transform(X.reshape(-1, X.shape[-1])).reshape(X.shape)
@@ -327,61 +329,61 @@ if case == "MFDA1":
     model_2_output = model_2(input_data)
     model_3_output = model_3(input_data)
     
-    # ==============================================
-    # Forward Model Cost & Accuracy for All Levels
-    # ==============================================
+    # # ==============================================
+    # # Forward Model Cost & Accuracy for All Levels
+    # # ==============================================
 
-    def rmse(a, b):
-        return np.sqrt(np.mean((a - b)**2))
+    # def rmse(a, b):
+    #     return np.sqrt(np.mean((a - b)**2))
 
-    models = {
-        "HF"    : model_HF_lag,
-        "LF(1)" : model_LF3_lag,
-        "LF(2)" : model_LF2_lag,
-        "LF(3)" : model_LF1_lag,
-        "MFDA(1)" : model_1,
-        "MFDA(2)" : model_2,
-        "MFDA(3)" : model_3,
-    }
+    # models = {
+    #     "HF"    : model_HF_lag,
+    #     "LF(1)" : model_LF3_lag,
+    #     "LF(2)" : model_LF2_lag,
+    #     "LF(3)" : model_LF1_lag,
+    #     "MFDA(1)" : model_1,
+    #     "MFDA(2)" : model_2,
+    #     "MFDA(3)" : model_3,
+    # }
 
-    # Select some representative test parameters
-    np.random.seed(123)
-    theta_tests = [x_distribution.rvs() for _ in range(20)]
+    # # Select some representative test parameters
+    # np.random.seed(123)
+    # theta_tests = [x_distribution.rvs() for _ in range(5)]
 
-    """
-    records = []
+    
+    # records = []
 
-    print("\nRunning forward accuracy/time evaluation...\n")
+    # print("\nRunning forward accuracy/time evaluation...\n")
 
-    for theta in theta_tests:
-        # compute high-fidelity once
-        t0 = time.time()
-        y_ref = models["HF"](theta)
-        t_ref = time.time() - t0
+    # for theta in theta_tests:
+    #     # compute high-fidelity once
+    #     t0 = time.time()
+    #     y_ref = models["HF"](theta)
+    #     t_ref = time.time() - t0
 
-        for name, fwd in models.items():
-            t0 = time.time()
-            y_pred = fwd(theta)
-            t_eval = time.time() - t0
-            err = rmse(y_pred, y_ref)
-            records.append([name, theta[0], theta[1], t_eval, err])
+    #     for name, fwd in models.items():
+    #         t0 = time.time()
+    #         y_pred = fwd(theta)
+    #         t_eval = time.time() - t0
+    #         err = rmse(y_pred, y_ref)
+    #         records.append([name, theta[0], theta[1], t_eval, err])
 
-    df_raw = pd.DataFrame(records, columns=["Model", "d1", "beta", "Time (s)", "RMSE vs HF"])
+    # df_raw = pd.DataFrame(records, columns=["Model", "d1", "beta", "Time (s)", "RMSE vs HF"])
 
-    # Compute mean ± std per model
-    df_summary = df_raw.groupby("Model").agg({
-        "Time (s)"     : ['mean','std'],
-        "RMSE vs HF"   : ['mean','std']
-    }).reset_index()
+    # # Compute mean ± std per model
+    # df_summary = df_raw.groupby("Model").agg({
+    #     "Time (s)"     : ['mean','std'],
+    #     "RMSE vs HF"   : ['mean','std']
+    # }).reset_index()
 
-    # Formatting for readability
-    df_summary.columns = ["Model", "Time Mean (s)", "Time Std (s)", "RMSE Mean", "RMSE Std"]
-    print("\n=== Performance Summary (20 random samples) ===\n")
-    print(df_summary.to_string(index=False))
+    # # Formatting for readability
+    # df_summary.columns = ["Model", "Time Mean (s)", "Time Std (s)", "RMSE Mean", "RMSE Std"]
+    # print("\n=== Performance Summary (20 random samples) ===\n")
+    # print(df_summary.to_string(index=False))
 
-    print("\n=== Raw measurements (all samples) ===\n")
-    print(df_raw.head())
-    """
+    # print("\n=== Raw measurements (all samples) ===\n")
+    # print(df_raw.head())
+    
 elif case == "MLDA1":
     
     model_1 = model_LF3_lag
@@ -408,42 +410,26 @@ y_obs1 = y_lf1 + np.random.normal(scale=noise, size=y_lf1.shape[0])
 y_obs2 = y_lf2 + np.random.normal(scale=noise, size=y_lf2.shape[0])
 y_obs3 = y_lf3 + np.random.normal(scale=noise, size=y_lf3.shape[0])
     
-#def ls(x):
-#    return (y_observed-model_HF_lag(x))
+def ls(x):
+   return (y_observed-model_HF_lag(x))
 
-#x_initial = x_true
-#x_initial[0] = x_initial[0] if x_initial[0] > 0.01 else x_true[0]
-#x_initial[1] = x_initial[1] if x_initial[1] > 0.5 else x_true[1]
+x_initial = x_true
+x_initial[0] = x_initial[0] if x_initial[0] > 0.01 else x_true[0]
+x_initial[1] = x_initial[1] if x_initial[1] > 0.5 else x_true[1]
 
-#res = least_squares(ls,x_initial, jac='3-point', verbose=2, bounds=([0.01,0.5],[0.1,1.5]))
-#covariancep = np.linalg.inv(res.jac.T @ res.jac)
-#covariancep *= 1/np.max(np.abs(covariancep))
-#print("Covariance: ", covariancep)
-#print("Params: ", res.x)
+res = least_squares(ls,x_initial, jac='3-point', verbose=2, bounds=([0.01,0.5],[0.1,1.5]))
+covariancep = np.linalg.inv(res.jac.T @ res.jac)
+covariancep *= 1/np.max(np.abs(covariancep))
+print("Covariance: ", covariancep)
+print("Params: ", res.x)
 
 n = y_observed.shape[0]
 cov_likelihood = np.diag(np.full(n, noise**2,dtype=np.float32))
 y_distribution_fine = tda.GaussianLogLike(y_observed, cov_likelihood)
 
-#x_distribution = CustomUniform([0.01,0.5],[0.1,1.5])
+my_proposal = tda.AdaptiveMetropolis(C0=covariancep, adaptive=True, gamma=1.01, period=100)
 
-import numpy as np
-from scipy import stats
-
-# original bounds (per dimension)
-a = np.array([0.01, 0.5])
-b = np.array([0.10, 1.5])
-
-# match Uniform(a,b) mean and variance with a Normal
-mu = (a + b) / 2.0
-prior_sigma = (b - a) / np.sqrt(12.0)
-cov_prior = np.diag(prior_sigma**2)
-
-# independent 1D normals (one per dimension)
-x_distribution = stats.multivariate_normal(mean=mu, cov=cov_prior)
-#my_proposal = tda.GaussianRandomWalk(C=covariancep,scaling=1e-3, adaptive=True, gamma=1.1, period=10)
-my_proposal = tda.AdaptiveMetropolis(C0=scaling*cov_prior, adaptive=True, gamma=1.01, period=100)
-x_initial = mu
+x_initial = res.x
 if case == "MFDA1":
 
     y_distribution_1 = tda.GaussianLogLike(y_observed+model_1(x_initial)-model_3(x_initial), cov_likelihood*scaling1)
@@ -484,8 +470,8 @@ elif case == "MLDA1":
 else:
     my_posteriors= tda.Posterior(x_distribution, y_distribution_fine, model_HF_lag)
     level = 2
-
-samples = tda.sample(my_posteriors, my_proposal, iterations=n_iter, n_chains=5,
+    
+samples = tda.sample(my_posteriors, my_proposal, iterations=n_iter, n_chains=5, #adaptive_error_model='state-independent',
                     initial_parameters=x_initial, subchain_length=sub_sampling,store_coarse_chain=False,force_sequential=True)
 elapsed_time = timeit.default_timer() - start_time
 idata = tda.to_inference_data(samples, level=level).sel(draw=slice(burnin, None, thin), groups="posterior")

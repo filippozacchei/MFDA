@@ -5,17 +5,17 @@ from scipy.integrate import ode
 import matplotlib.pyplot as plt
 import logging
 
-np.random.seed(40) # 40 train, 41 test
+np.random.seed(41) # 40 train, 41 test
 
 # Parameters
-num_samples = 200               # Number of LHS samples
+num_samples = 20               # Number of LHS samples
 d1_range = [0.01, 0.1]
 beta_range = [0.5, 1.5]
 L = 20                         # Domain size
-n = 64                         # Grid size
+n = 128                         # Grid size
 N = n * n                      # Total grid points
 t = np.arange(0, 50.05, 0.2)   # Time vector
-output_name = 'reaction_diffusion_training_h2.h5'
+output_name = 'reaction_diffusion_testing_h1.h5'
 
 # Generate LHS samples
 lhs_samples = np.random.rand(num_samples, 2)
@@ -143,13 +143,13 @@ import h5py
 
 with h5py.File(output_name, 'w') as h5file:
     # Create datasets for parameters and solutions
-    d1_dset = h5file.create_dataset("d1", (num_samples,), dtype='float64')
-    beta_dset = h5file.create_dataset("beta", (num_samples,), dtype='float64')
-    u_dset = h5file.create_dataset("u", (num_samples, len(t), n, n), dtype='float64')
-    v_dset = h5file.create_dataset("v", (num_samples, len(t), n, n), dtype='float64')
-    t_dset = h5file.create_dataset("t", (len(t),), dtype='float64')
-    x_dset = h5file.create_dataset("x", (n,), dtype='float64')
-    y_dset = h5file.create_dataset("y", (n,), dtype='float64')
+    d1_dset = h5file.create_dataset("d1", (num_samples,), dtype='float32')
+    beta_dset = h5file.create_dataset("beta", (num_samples,), dtype='float32')
+    u_dset = h5file.create_dataset("u", (num_samples, len(t), n, n), dtype='float32')
+    v_dset = h5file.create_dataset("v", (num_samples, len(t), n, n), dtype='float32')
+    t_dset = h5file.create_dataset("t", (len(t),), dtype='float32')
+    x_dset = h5file.create_dataset("x", (n,), dtype='float32')
+    y_dset = h5file.create_dataset("y", (n,), dtype='float32')
 
     # Store grid and time values (same for all samples)
     t_dset[:] = t
@@ -166,33 +166,33 @@ with h5py.File(output_name, 'w') as h5file:
 print("Dataset saved in HDF5 format for training.")
 
 # Visualization function
-# def visualize_solution(data):
-#     x = data['x']
-#     y = data['y']
-#     u = data['u']
-#     v = data['v']
-#     t = data['t']
+def visualize_solution(data):
+    x = data['x']
+    y = data['y']
+    u = data['u']
+    v = data['v']
+    t = data['t']
     
-#     for j in range(0, len(t), 5):
-#         plt.figure(figsize=(12, 5))
+    for j in range(0, len(t), 5):
+        plt.figure(figsize=(12, 5))
         
-#         plt.subplot(1, 2, 1)
-#         plt.pcolormesh(x, y, u[:, :, j], shading='auto', cmap='jet')
-#         plt.colorbar()
-#         plt.title(f'u at t = {t[j]:.2f}')
-#         plt.xlabel('x')
-#         plt.ylabel('y')
+        plt.subplot(1, 2, 1)
+        plt.pcolormesh(x, y, u[:, :, j], shading='auto', cmap='jet')
+        plt.colorbar()
+        plt.title(f'u at t = {t[j]:.2f}')
+        plt.xlabel('x')
+        plt.ylabel('y')
         
-#         plt.subplot(1, 2, 2)
-#         plt.pcolormesh(x, y, v[:, :, j], shading='auto', cmap='jet')
-#         plt.colorbar()
-#         plt.title(f'v at t = {t[j]:.2f}')
-#         plt.xlabel('x')
-#         plt.ylabel('y')
-#         plt.show()
-#         plt.pause(0.1)
-#         plt.close()
+        plt.subplot(1, 2, 2)
+        plt.pcolormesh(x, y, v[:, :, j], shading='auto', cmap='jet')
+        plt.colorbar()
+        plt.title(f'v at t = {t[j]:.2f}')
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.show()
+        plt.pause(0.1)
+        plt.close()
 
-# # Load and visualize some results
-# visualize_solution(dataset[0])
-# visualize_solution(dataset[1])
+# Load and visualize some results
+visualize_solution(dataset[4])
+visualize_solution(dataset[1])

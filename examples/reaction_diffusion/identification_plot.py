@@ -102,12 +102,12 @@ def load_and_process_data(config, num_modes=25):
     return scaler_X, scaler_Y
 
 np.random.seed(123)
-config_filepath = 'config/config_MultiFidelity_3_bis.json'
+config_filepath = 'config/config_MultiFidelity_3.json'
 config = load_configuration(config_filepath)
 scaler_X, scaler_Y = load_and_process_data(config, num_modes=num_modes)
 
 # Instantiate Models for Different Resolutions
-solver_h1 = Model_DR(n=128, dt=0.1, L=20., T=50.05)
+solver_h1 = Model_DR(n=128, dt=0.2, L=20., T=50.05)
 solver_h2 = Model_DR(n=64,  dt=0.2, L=20., T=50.05)
 solver_h3 = Model_DR(n=32,  dt=0.5, L=20., T=50.05)
 solver_h4 = Model_DR(n=16,  dt=1.0, L=20., T=50.05)
@@ -167,7 +167,7 @@ def model_LF1(input): return solver_data(solver_h2, input).flatten()
 def model_LF2(input): return solver_data(solver_h3, input).flatten()
 def model_LF3(input): return solver_data(solver_h4, input).flatten()
 
-def model_HF_lag(input):  return solver_data(solver_h1, input, lag=10).flatten()
+def model_HF_lag(input):  return solver_data(solver_h1, input, lag=5).flatten()
 def model_LF1_lag(input): return solver_data(solver_h2, input, lag=5).flatten()
 def model_LF2_lag(input): return solver_data(solver_h3, input, lag=2).flatten()
 def model_LF3_lag(input): return solver_data(solver_h4, input, lag=1).flatten()
@@ -209,10 +209,10 @@ def expand_parameters(input, time_steps_fine):
     
 if case == "1-step":
     # Load Models for Low- and Multi-fidelity Predictions
-    models_1 = load_model(f'models/multi_fidelity_bis/resolution_h4/model.keras', safe_mode=False)
-    models_2 = load_model(f'models/multi_fidelity_bis/resolution_h3-h4/model.keras', safe_mode=False)
-    models_3 = load_model(f'models/multi_fidelity_bis/resolution_h2-h3-h4/model.keras', safe_mode=False)
-    config_filepath = 'config/config_MultiFidelity_3_bis.json'
+    models_1 = load_model(f'models/multi_fidelity/resolution_h4/model.keras', safe_mode=False)
+    models_2 = load_model(f'models/multi_fidelity/resolution_h3-h4/model.keras', safe_mode=False)
+    models_3 = load_model(f'models/multi_fidelity/resolution_h2-h3-h4/model.keras', safe_mode=False)
+    config_filepath = 'config/config_MultiFidelity_3.json'
     config = load_configuration(config_filepath)
     pod_basis = load_hdf5(config["pod_basis"])
     pod_basis_coarse1 = load_hdf5(config["pod_basis_coarse1"])
@@ -238,8 +238,8 @@ if case == "1-step":
     time_steps_coarseh4 = 51
     time_steps_coarseh3 = 101
     time_steps_coarseh2 = 251
-    time_steps_fine = 501
-    time_fine = np.arange(0, 50.05, 0.1)
+    time_steps_fine = 251
+    time_fine = np.arange(0, 50.05, 0.2)
     time_expanded = np.tile(time_fine, (1, 1))[:, :, np.newaxis]  # (num_samples, time_steps, 1)
     
     U, Sigma = pod_basis["POD_modes"], pod_basis["singular_values"]
@@ -273,7 +273,7 @@ if case == "1-step":
         print(predictions.shape)
         #predictions = scaler_Y.inverse_transform(predictions)
         sol_u, sol_v = reconstruct_eff1(U,Sigma,predictions/Sigma[:num_modes],25)
-        sol = get_data(sol_u, sol_v, lag=10).flatten()
+        sol = get_data(sol_u, sol_v, lag=5).flatten()
         return sol
 
     def model_2(input_data):
@@ -284,7 +284,7 @@ if case == "1-step":
         predictions = model_mf2(X, coarse_data2, coarse_data1).numpy()
         #predictions = scaler_Y.inverse_transform(predictions)
         sol_u, sol_v = reconstruct_eff1(U,Sigma,predictions/Sigma[:num_modes],25)
-        sol = get_data(sol_u, sol_v, lag=10).flatten()
+        sol = get_data(sol_u, sol_v, lag=5).flatten()
         return sol
 
     def model_3(input_data):
@@ -296,7 +296,7 @@ if case == "1-step":
         predictions = model_mf3(X, coarse_data3, coarse_data2, coarse_data1).numpy()
         #predictions = scaler_Y.inverse_transform(predictions)
         sol_u, sol_v = reconstruct_eff1(U,Sigma,predictions/Sigma[:num_modes],25)
-        sol = get_data(sol_u, sol_v, lag=10).flatten()
+        sol = get_data(sol_u, sol_v, lag=5).flatten()
         return sol
         
     NUM_DATAPOINTS = 2
@@ -365,6 +365,8 @@ for _ in range(n_runs):
     y_lf3_temp = model_LF1_lag(x_true_temp)
     times["LF3"].append(time.perf_counter() - start)
     
+    print(y_hf_temp.shape)
+    print(y_mf1_temp.shape)
     errors["MF1"].append(np.sqrt(np.mean((y_hf_temp - y_mf1_temp)**2)))
     errors["MF2"].append(np.sqrt(np.mean((y_hf_temp - y_mf2_temp)**2)))
     errors["MF3"].append(np.sqrt(np.mean((y_hf_temp - y_mf3_temp)**2)))
